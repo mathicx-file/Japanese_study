@@ -1,0 +1,643 @@
+import { JapaneseStorage } from './storage.js';
+import { JapaneseSearch } from './search.js';
+import { JapaneseStrokePlayer } from './stroke-player.js';
+import { JapanesePractice } from './practice.js';
+import { JapaneseUI } from './ui.js';
+import { JapaneseDictionary } from './dictionary.js';
+import { JapaneseQuiz } from './quiz.js';
+import { JapaneseStudyEngine } from './study-engine.js';
+import { JapaneseLearningLevels } from './learning-levels.js';
+import { JapaneseRecommendationEngine } from './recommendation-engine.js';
+
+const JapaneseApp = (() => {
+  let allData = [];
+  let hiraganaData = [];
+  let katakanaData = [];
+  let kanjiData = [];
+  let dictionaryData = [];
+  let initialized = false;
+  let sessionStartedAt = Date.now();
+  let lastSavedMinute = 0;
+  let dictionarySearchTimer = null;
+  let selectedBackup = null;
+  let activeQuizContext = null;
+
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
+    JapaneseUI.init();
+
+    const loadingEl = document.getElementById('loading-state');
+    const gridEl = document.getElementById('character-grid');
+
+    Promise.all([
+      loadJSON('data/hiragana.json'),
+      loadJSON('data/katakana.json'),
+      loadJSON('data/kanji.json'),
+      loadJSON('data/dictionary.json')
+    ]).then(([hira, kata, kanji, dictionary]) => {
+      hiraganaData = (hira.characters || hira).map(c => ({ ...c, script: 'hiragana' }));
+      katakanaData = (kata.characters || kata).map(c => ({ ...c, script: 'katakana' }));
+      kanjiData = (kanji.kanji || kanji.characters || kanji).map(c => ({ ...c, script: 'kanji', category: c.level || 'N5' }));
+      dictionaryData = dictionary.words || dictionary;
+
+      allData = [...hiraganaData, ...katakanaData, ...kanjiData];
+
+      if (loadingEl) loadingEl.style.display = 'none';
+      gridEl.style.display = '';
+
+      JapaneseSearch.setData(allData);
+      JapaneseDictionary.setData(dictionaryData);
+      JapaneseQuiz.setData(allData);
+      JapaneseUI.setCharacters(allData);
+      JapaneseUI.applyQuizSettings(getSavedQuizSettings());
+
+      const categories = [...new Set(allData.map(c => c.category))];
+      JapaneseUI.renderFilters(categories, '');
+
+      const initialChars = allData.filter(c => c.script === 'hiragana');
+      JapaneseUI.renderGrid(initialChars);
+      renderDictionary();
+
+      JapaneseSearch.onResults((results) => {
+        JapaneseUI.renderGrid(results);
+      });
+
+      JapaneseUI.onFilterChangeCallback(() => {
+        applyFilters();
+      });
+
+      JapaneseUI.onViewChangeCallback(() => {
+        applyFilters();
+      });
+
+      JapaneseUI.onDictionaryFilterChangeCallback(() => {
+        renderDictionary();
+      });
+
+      JapaneseUI.onQuizSettingsChangeCallback(() => {
+        activeQuizContext = null;
+        persistQuizSettings();
+        JapaneseQuiz.resetStats();
+        renderQuiz();
+      });
+
+      JapaneseUI.onQuizAnswerCallback((answer) => {
+        const result = JapaneseQuiz.checkAnswer(answer);
+        JapaneseStorage.saveQuizAnswer(currentQuizQuestion, result).then(() => {
+          if (!result.empty && !result.locked) JapaneseStorage.emitChange('quiz-updated', result);
+        }).catch(() => {});
+        JapaneseUI.renderQuiz(currentQuizQuestion, JapaneseQuiz.getStats(), result, activeQuizContext);
+      });
+
+      JapaneseUI.onQuizNextCallback(() => {
+        renderQuiz();
+      });
+
+      JapaneseUI.onQuizRevealCallback(() => {
+        currentQuizQuestion = JapaneseQuiz.revealFlashcard();
+        JapaneseUI.renderQuiz(currentQuizQuestion, JapaneseQuiz.getStats(), undefined, activeQuizContext);
+      });
+
+      JapaneseUI.onQuizResetCallback(() => {
+        activeQuizContext = null;
+        JapaneseQuiz.resetStats();
+        renderQuiz();
+      });
+
+      JapaneseUI.onBackupExportCallback(() => {
+        exportBackup();
+      });
+
+      JapaneseUI.onBackupFileSelectedCallback((file) => {
+        previewBackupFile(file);
+      });
+
+      JapaneseUI.onBackupImportCallback((mode) => {
+        importSelectedBackup(mode);
+      });
+
+      JapaneseUI.onClearDataCallback(() => {
+        clearLocalData();
+      });
+
+      JapaneseUI.onStudyNowCallback(() => {
+        startRecommendedSession();
+      });
+
+      JapaneseUI.onDiagnosticCallback(() => {
+        startDiagnosticSession();
+      });
+
+      JapaneseUI.onGuidedTrailCallback((trailId) => {
+        startGuidedTrail(trailId);
+      });
+
+      JapaneseUI.onQuickSessionCallback((sessionId) => {
+        startQuickSession(sessionId);
+      });
+
+      setupSearch();
+      setupHostListener();
+      setupStudyTimeTracking();
+      loadStats();
+      setupStorageListener();
+    }).catch(err => {
+      console.error('Failed to load character data:', err);
+      if (loadingEl) {
+        loadingEl.innerHTML = '<div class="empty-state"><p>Erro ao carregar dados. Tente novamente.</p></div>';
+      }
+    });
+  }
+
+  let currentQuizQuestion = null;
+
+  function loadJSON(path) {
+    return fetch(path).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function applyFilters() {
+    if (JapaneseUI.getCurrentView() === 'dictionary') {
+      renderDictionary();
+      return;
+    }
+    if (JapaneseUI.getCurrentView() === 'quiz') {
+      renderQuiz();
+      return;
+    }
+    if (JapaneseUI.getCurrentView() === 'data') return;
+
+    const query = document.getElementById('search-input').value;
+    const filters = JapaneseUI.getFilters();
+    const results = JapaneseSearch.search(query, filters);
+    JapaneseUI.renderGrid(results);
+  }
+
+  function setupSearch() {
+    const input = document.getElementById('search-input');
+    input.addEventListener('input', () => {
+      if (JapaneseUI.getCurrentView() === 'dictionary') {
+        clearTimeout(dictionarySearchTimer);
+        dictionarySearchTimer = setTimeout(renderDictionary, 150);
+        return;
+      }
+      if (JapaneseUI.getCurrentView() === 'quiz') return;
+
+      const filters = JapaneseUI.getFilters();
+      JapaneseSearch.debouncedSearch(input.value, filters);
+    });
+  }
+
+  function setupHostListener() {
+    window.addEventListener('message', (event) => {
+      if (!isAllowedHostMessage(event)) return;
+
+      const data = event.data || {};
+      switch (data.type) {
+        case 'theme':
+          document.documentElement.dataset.theme = data.value || data.payload || '';
+          break;
+        case 'refresh':
+          location.reload();
+          break;
+        case 'focus':
+          window.focus();
+          break;
+      }
+    });
+  }
+
+  function isAllowedHostMessage(event) {
+    if (!isTrustedHostSource(event.source)) return false;
+    if (!isAllowedOrigin(event.origin)) return false;
+    return isValidHostMessage(event.data);
+  }
+
+  function isTrustedHostSource(source) {
+    return source === window.parent || source === window.opener || source === window;
+  }
+
+  function isAllowedOrigin(origin) {
+    if (origin === window.location.origin) return true;
+    if (origin === 'null' && window.location.protocol === 'file:') return true;
+    return false;
+  }
+
+  function isValidHostMessage(data) {
+    if (!data || typeof data !== 'object' || typeof data.type !== 'string') return false;
+    return ['theme', 'refresh', 'focus'].includes(data.type);
+  }
+
+  function setupStorageListener() {
+    document.addEventListener('japanese:storage', (e) => {
+      const { type, data } = e.detail;
+      if (type === 'favorite-added' || type === 'favorite-removed') {
+        if (JapaneseUI.getFilters().onlyFavorites) {
+          applyFilters();
+        } else {
+          JapaneseUI.updateCardFavoriteState(data.charId);
+        }
+        loadStats();
+      } else if (type === 'progress-updated' || type === 'study-time-updated' || type === 'quiz-updated') {
+        loadStats();
+      } else if (type === 'srs-updated') {
+        if (JapaneseUI.getFilters().dueReview) applyFilters();
+        loadStats();
+      } else if (
+        type === 'dictionary-favorite-added' ||
+        type === 'dictionary-favorite-removed' ||
+        type === 'dictionary-history-updated'
+      ) {
+        if (JapaneseUI.getCurrentView() === 'dictionary') renderDictionary();
+      } else if (type === 'backup-imported') {
+        applyFilters();
+        renderDictionary();
+        JapaneseQuiz.resetStats();
+        loadStats();
+      } else if (type === 'data-cleared') {
+        JapaneseUI.setFilters({ script: 'hiragana', category: '', onlyFavorites: false, dueReview: false });
+        applyFilters();
+        renderDictionary();
+        JapaneseQuiz.resetStats();
+        loadStats();
+      }
+    });
+  }
+
+  async function exportBackup() {
+    try {
+      const backup = await JapaneseStorage.exportBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const date = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `japanese-study-backup-${date}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      JapaneseUI.showBackupStatus('Backup exportado com sucesso.', 'success');
+    } catch (error) {
+      console.error('Failed to export backup:', error);
+      JapaneseUI.showBackupStatus('Não foi possível exportar o backup.', 'error');
+    }
+  }
+
+  async function previewBackupFile(file) {
+    selectedBackup = null;
+
+    if (!file) {
+      JapaneseUI.updateBackupPreview(null);
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      const validation = JapaneseStorage.validateImportedBackup(backup);
+      selectedBackup = validation.ok ? backup : null;
+      JapaneseUI.updateBackupPreview(validation, file.name);
+    } catch {
+      JapaneseUI.updateBackupPreview({
+        ok: false,
+        errors: ['Não foi possível ler o arquivo JSON selecionado.'],
+        summary: {}
+      }, file.name);
+    }
+  }
+
+  async function importSelectedBackup(mode) {
+    if (!selectedBackup) {
+      JapaneseUI.showBackupStatus('Selecione um backup válido antes de importar.', 'error');
+      return;
+    }
+
+    if (mode === 'replace') {
+      const confirmed = window.confirm('Substituir os dados atuais pelo backup selecionado? Esta ação remove progresso, favoritos e SRS atuais antes da importação.');
+      if (!confirmed) return;
+    }
+
+    try {
+      await JapaneseStorage.importBackup(selectedBackup, mode);
+      selectedBackup = null;
+      JapaneseUI.showBackupStatus(mode === 'replace'
+        ? 'Backup importado substituindo os dados atuais.'
+        : 'Backup importado e mesclado com os dados atuais.', 'success');
+      applyFilters();
+      renderDictionary();
+      JapaneseQuiz.resetStats();
+      loadStats();
+    } catch (error) {
+      console.error('Failed to import backup:', error);
+      JapaneseUI.showBackupStatus(error.message || 'Não foi possível importar o backup.', 'error');
+    }
+  }
+
+  async function clearLocalData() {
+    const confirmed = window.confirm('Excluir todos os dados locais de estudo deste navegador? Esta ação remove histórico, progresso, SRS, favoritos e preferências. Exporte um backup antes se quiser preservar algo.');
+    if (!confirmed) return;
+
+    try {
+      await JapaneseStorage.clearAllUserData();
+      selectedBackup = null;
+      JapaneseUI.updateBackupPreview(null);
+      JapaneseUI.resetClearDataConfirmation();
+      JapaneseUI.showClearDataStatus('Dados locais excluídos com sucesso.', 'success');
+      applyFilters();
+      renderDictionary();
+      JapaneseQuiz.resetStats();
+      loadStats();
+    } catch (error) {
+      console.error('Failed to clear local data:', error);
+      JapaneseUI.showClearDataStatus('Não foi possível excluir os dados locais.', 'error');
+    }
+  }
+
+  async function renderDictionary() {
+    const query = document.getElementById('search-input').value;
+    const filters = JapaneseUI.getDictionaryFilters();
+    let results = [];
+
+    if (filters.tab === 'history') {
+      const history = await JapaneseStorage.getDictionaryHistory(50);
+      const ids = history.map(item => item.charId);
+      results = JapaneseDictionary.filterByIds(ids, filters);
+      results = filterDictionaryWords(results, query);
+    } else if (filters.tab === 'favorites') {
+      const ids = JapaneseStorage.getDictionaryFavorites();
+      results = JapaneseDictionary.filterByIds(ids, filters);
+      results = filterDictionaryWords(results, query);
+    } else {
+      results = JapaneseDictionary.search(query, filters);
+    }
+
+    JapaneseUI.renderDictionary(results);
+  }
+
+  function renderQuiz() {
+    currentQuizQuestion = JapaneseQuiz.nextQuestion(JapaneseUI.getQuizSettings());
+    JapaneseUI.renderQuiz(currentQuizQuestion, JapaneseQuiz.getStats(), undefined, activeQuizContext);
+    completeDiagnosticIfNeeded(currentQuizQuestion, JapaneseQuiz.getStats());
+  }
+
+  async function startRecommendedSession() {
+    const context = await buildAdaptiveContext();
+    const session = JapaneseStudyEngine.buildSession(context);
+    activeQuizContext = {
+      type: 'recommended',
+      title: session.title || 'Sess\u00e3o recomendada',
+      description: session.description || 'Sess\u00e3o montada com base no seu progresso atual.'
+    };
+    JapaneseUI.applyQuizSettings(session.quiz);
+    persistQuizSettings();
+    JapaneseQuiz.resetStats(Number(session.quiz.limit || 10));
+    JapaneseUI.setCurrentView('quiz');
+    renderQuiz();
+  }
+
+  function startDiagnosticSession() {
+    const settings = {
+      mode: 'multiple-choice',
+      script: 'all',
+      categories: ['gojuuon'],
+      limit: '10',
+      includeMistakeReviews: false
+    };
+    activeQuizContext = {
+      type: 'diagnostic',
+      title: 'Diagn\u00f3stico inicial',
+      description: 'Responda 10 perguntas de Gojuuon em hiragana e katakana. As revis\u00f5es de erro ficam desativadas nesta sess\u00e3o.'
+    };
+    JapaneseUI.applyQuizSettings(settings);
+    persistDiagnostic({ skipped: false, startedAt: new Date().toISOString(), weakScript: null });
+    JapaneseQuiz.resetStats(10);
+    JapaneseUI.setCurrentView('quiz');
+    renderQuiz();
+  }
+
+  function startGuidedTrail(trailId) {
+    const trail = JapaneseRecommendationEngine.getGuidedTrail(trailId);
+    if (!trail) return;
+    startPresetSession(trail, 'guided');
+  }
+
+  function startQuickSession(sessionId) {
+    const session = JapaneseRecommendationEngine.getQuickSession(sessionId);
+    if (!session) return;
+    startPresetSession(session, 'quick');
+  }
+
+  function startPresetSession(preset, type) {
+    const settings = {
+      mode: preset.quiz?.mode || 'multiple-choice',
+      script: preset.quiz?.script || 'all',
+      categories: Array.isArray(preset.quiz?.categories) ? preset.quiz.categories : ['gojuuon'],
+      limit: String(preset.quiz?.limit || 10),
+      includeMistakeReviews: preset.quiz?.includeMistakeReviews !== false
+    };
+
+    activeQuizContext = {
+      type: 'recommended',
+      title: preset.title || 'Sess\u00e3o de estudo',
+      description: type === 'guided'
+        ? (preset.description || 'Trilha guiada de estudo.')
+        : 'Sess\u00e3o r\u00e1pida configurada para estudar agora.'
+    };
+    JapaneseUI.applyQuizSettings(settings);
+    persistQuizSettings();
+    JapaneseQuiz.resetStats(Number(settings.limit || 10));
+    JapaneseUI.setCurrentView('quiz');
+    renderQuiz();
+  }
+
+  function filterDictionaryWords(words, query) {
+    const q = String(query || '').toLowerCase().trim();
+    if (!q) return words;
+
+    return words.filter(word =>
+      String(word.word || '').toLowerCase().includes(q) ||
+      String(word.reading || '').toLowerCase().includes(q) ||
+      String(word.romaji || '').toLowerCase().includes(q) ||
+      String(word.definition || '').toLowerCase().includes(q) ||
+      String(word.category || '').toLowerCase().includes(q)
+    );
+  }
+
+  async function loadStats() {
+    try {
+      const favs = JapaneseStorage.getFavorites();
+      const stats = await JapaneseStorage.getStats();
+      const srsStats = JapaneseStorage.getSrsStats(allData);
+      const quizStats = await JapaneseStorage.getQuizStats();
+      const difficulty = await JapaneseStorage.getDifficultyMap(8);
+      const completion = getCompletion(stats.studiedIds || []);
+      const settings = JapaneseStorage.getSettings();
+      const context = {
+        characters: allData,
+        stats,
+        srsStats,
+        quizStats,
+        completion,
+        difficulty,
+        studiedIds: stats.studiedIds || [],
+        diagnostic: settings.diagnostic || {}
+      };
+      const level = JapaneseLearningLevels.calculate(context);
+      const recommendation = JapaneseRecommendationEngine.recommend(context);
+      JapaneseUI.updateStats({
+        totalChars: allData.length,
+        favorites: favs.length,
+        studied: stats.totalStudied || 0
+      });
+      JapaneseUI.updateDashboard({
+        stats,
+        srsStats,
+        quizStats,
+        completion,
+        favorites: favs.length,
+        level,
+        recommendation,
+        difficulty,
+        syllabus: JapaneseRecommendationEngine.SYLLABUS,
+        guidedTrails: JapaneseRecommendationEngine.GUIDED_TRAILS,
+        quickSessions: JapaneseRecommendationEngine.QUICK_SESSIONS
+      });
+    } catch {
+      JapaneseUI.updateStats({
+        totalChars: allData.length,
+        favorites: JapaneseStorage.getFavorites().length,
+        studied: 0
+      });
+      JapaneseUI.updateDashboard({
+        stats: {},
+        srsStats: JapaneseStorage.getSrsStats(allData),
+        completion: getCompletion([]),
+        favorites: JapaneseStorage.getFavorites().length,
+        level: JapaneseLearningLevels.calculate({}),
+        recommendation: JapaneseRecommendationEngine.recommend({ characters: allData }),
+        difficulty: [],
+        syllabus: JapaneseRecommendationEngine.SYLLABUS,
+        guidedTrails: JapaneseRecommendationEngine.GUIDED_TRAILS,
+        quickSessions: JapaneseRecommendationEngine.QUICK_SESSIONS
+      });
+    }
+  }
+
+  async function buildAdaptiveContext() {
+    const stats = await JapaneseStorage.getStats();
+    const srsStats = JapaneseStorage.getSrsStats(allData);
+    const quizStats = await JapaneseStorage.getQuizStats();
+    const difficulty = await JapaneseStorage.getDifficultyMap(8);
+    const completion = getCompletion(stats.studiedIds || []);
+    const settings = JapaneseStorage.getSettings();
+    return {
+      characters: allData,
+      stats,
+      srsStats,
+      quizStats,
+      completion,
+      difficulty,
+      studiedIds: stats.studiedIds || [],
+      diagnostic: settings.diagnostic || {}
+    };
+  }
+
+  function getSavedQuizSettings() {
+    const settings = JapaneseStorage.getSettings();
+    return {
+      mode: settings.quiz?.mode || 'recognition',
+      script: settings.quiz?.script || 'all',
+      categories: Array.isArray(settings.quiz?.categories) ? settings.quiz.categories : ['gojuuon', 'dakuon', 'handakuon', 'youon'],
+      limit: settings.quiz?.limit || '10',
+      includeMistakeReviews: settings.quiz?.includeMistakeReviews !== false
+    };
+  }
+
+  function persistQuizSettings() {
+    const settings = JapaneseStorage.getSettings();
+    JapaneseStorage.setSettings({
+      ...settings,
+      quiz: JapaneseUI.getQuizSettings()
+    });
+  }
+
+  function persistDiagnostic(diagnostic) {
+    const settings = JapaneseStorage.getSettings();
+    JapaneseStorage.setSettings({
+      ...settings,
+      diagnostic: {
+        ...(settings.diagnostic || {}),
+        ...diagnostic
+      }
+    });
+  }
+
+  function completeDiagnosticIfNeeded(question, stats) {
+    if (!question || question.type !== 'complete') return;
+    const settings = JapaneseStorage.getSettings();
+    const diagnostic = settings.diagnostic || {};
+    if (!diagnostic.startedAt || diagnostic.completedAt) return;
+
+    const accuracy = stats.accuracy || 0;
+    persistDiagnostic({
+      completedAt: new Date().toISOString(),
+      answered: stats.answered || 0,
+      accuracy,
+      level: accuracy >= 80 ? 'intermediario' : accuracy >= 50 ? 'iniciante-plus' : 'iniciante',
+      weakScript: accuracy < 70 ? 'hiragana' : null
+    });
+    loadStats();
+  }
+
+  function getCompletion(studiedIds) {
+    const studied = new Set(studiedIds);
+    const countStudied = (items) => items.filter(c => studied.has(JapaneseSearch.buildId(c))).length;
+
+    return {
+      hiragana: {
+        total: hiraganaData.length,
+        studied: countStudied(hiraganaData)
+      },
+      katakana: {
+        total: katakanaData.length,
+        studied: countStudied(katakanaData)
+      },
+      kanji: {
+        total: kanjiData.length,
+        studied: countStudied(kanjiData)
+      }
+    };
+  }
+
+  function setupStudyTimeTracking() {
+    setInterval(saveStudyTimeSnapshot, 60000);
+    window.addEventListener('pagehide', saveStudyTimeSnapshot);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') saveStudyTimeSnapshot();
+    });
+  }
+
+  function saveStudyTimeSnapshot() {
+    const elapsedMinutes = Math.floor((Date.now() - sessionStartedAt) / 60000);
+    const unsavedMinutes = elapsedMinutes - lastSavedMinute;
+    if (unsavedMinutes <= 0) return;
+
+    lastSavedMinute = elapsedMinutes;
+    JapaneseStorage.saveStudyTime(unsavedMinutes).then(() => {
+      JapaneseStorage.emitChange('study-time-updated', { minutes: unsavedMinutes });
+    }).catch(() => {});
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    init();
+  }
+
+  return { init, applyFilters };
+})();
