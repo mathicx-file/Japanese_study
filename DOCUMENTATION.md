@@ -5,9 +5,9 @@ Aplicação web standalone para estudo de hiragana e katakana, criada para ser c
 O projeto usa apenas HTML5, CSS3 e JavaScript vanilla com ES Modules. Não há etapa de build, bundler ou dependência de framework.
 
 ```text
-Versão atual: 1.7
-Última atualização da documentação: 2026-06-29
-Próxima versão recomendada: 2.0 - Kanji N5 Inicial
+Versão atual: 2.0
+Última atualização da documentação: 2026-06-30
+Próxima versão recomendada: 2.1 - Assistente de Estudo Diário e integração profunda
 ```
 
 ## Objetivo
@@ -177,9 +177,10 @@ Esta tabela substitui a leitura antiga de conformidade por uma visão centraliza
 | Prática de escrita | Concluído | 1.5 | Canvas, guia de traços e avaliação baseada em desenho |
 | Consolidação e backup | Concluído | 1.6 | Exportação/importação, versionamento, migrações, SVG local e testes |
 | Aprendizagem adaptativa | Concluído | 1.7 | Estudar agora, níveis, recomendações, diagnóstico, mapa de dificuldades e quiz configurável |
-| Kanji N5 inicial | Planejado | 2.0 | Primeira fatia vertical com 10 a 20 kanji antes de escalar |
+| Kanji N5 inicial | Concluído | 2.0 | Primeira fatia vertical com 10 kanji integrada a busca, dicionário, SRS, quiz, escrita, backup e dashboard |
 | Integração profunda | Planejado | 2.1 | Widget, launcher, deep links, notificações e status em tempo real |
-| Assistente de estudos | Planejado | 3.0 | Camada avançada sobre o motor determinístico iniciado na 1.7 |
+| Assistente de estudo diário | Em andamento | 2.1 | Recomendações explicáveis, evidências, sessão sugerida e resumo pós-quiz |
+| Assistente de estudos avançado | Planejado | 3.0 | Plano semanal, objetivos, análise de progresso e orquestração mais completa |
 | Sincronização opcional | Planejado | 4.0 | Backup remoto, conflitos, conta opcional e cache local |
 
 ## Riscos e Pontos Técnicos
@@ -597,6 +598,8 @@ Progresso multidimensional sugerido:
 
 O estudante pode reconhecer um kanji sem dominar escrita, leituras e vocabulário. Por isso, Kanji não deve usar apenas `mastered: true` ou `false`.
 
+Status atual: implementado como fatia vertical inicial com 10 kanji N5 em `data/kanji.json`, entradas de dicionário com kanji, busca por significado/leitura/radical/tag/vocabulário, integração com SRS, modos de quiz de kanji, prática de escrita, backup e métricas no dashboard. A expansão do conjunto N5 deve continuar em blocos pequenos, com validação de dados e sem trocar a fonte local nesta etapa.
+
 ### Versão 2.1 - Integração Profunda com Mathicx-File
 
 Integrar o app de forma mais profunda ao Mathicx-File, incluindo widgets, launcher, notificações e comunicação de status de estudo.
@@ -689,6 +692,8 @@ Você possui 8 caracteres para revisar hoje.
 
 Evoluir o assistente determinístico iniciado na versão 1.7 para uma camada mais completa de planejamento, explicação e acompanhamento. Esta versão não deve substituir o SRS nem as sessões inteligentes; deve orquestrar esses recursos com mais contexto.
 
+Status atual: iniciado em 2.1 com Assistente de Estudo Diário v2. O motor de recomendação agora retorna um contrato versionado com motivo, evidências, ação sugerida, sessão e próximo passo. O dashboard exibe essas informações e o quiz mostra um resumo pós-sessão com orientação para o próximo estudo. A implementação continua local-first, mas preserva IDs estáveis, `schemaVersion` e módulos centralizados para facilitar uma fonte futura como Firebase ou outro banco.
+
 Adicionar:
 
 - plano de estudos;
@@ -757,6 +762,7 @@ O Japanese Study App deve evoluir de um visualizador de hiragana e katakana para
 
 ## Próximos Passos Recomendados
 
-1. Iniciar Kanji na versão 2.0 como uma fatia vertical pequena, com 10 a 20 kanji totalmente integrados.
+1. Evoluir o Assistente de Estudo Diário para plano semanal, objetivos configuráveis e análise de progresso.
 2. Aprofundar a integração com Mathicx-File por widget, launcher, deep links e notificações úteis.
-3. Evoluir o assistente determinístico com planos de estudo explicáveis e priorização de erros recorrentes.
+3. Expandir Kanji N5 em blocos pequenos, mantendo validação de dados e compatibilidade com backup/importação.
+4. Avaliar Firebase ou outro banco apenas quando houver necessidade real de dicionário remoto, sincronização multi-dispositivo ou atualização dinâmica de palavras.

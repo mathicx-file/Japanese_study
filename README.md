@@ -1,41 +1,82 @@
 # Japanese Study
 
-Aplicacao web para estudar hiragana, katakana e kanji N5, com foco em pratica diaria, consulta rapida e acompanhamento de progresso local.
+Aplicacao web local-first para estudar hiragana, katakana e Kanji N5, com pratica diaria, consulta rapida, repeticao espacada, quiz, escrita, backup e recomendacoes adaptativas.
 
-O projeto e feito com HTML, CSS e JavaScript vanilla usando ES Modules. Nao ha etapa de build, framework ou banco de dados externo: os dados ficam em arquivos JSON e o progresso do usuario e salvo localmente no navegador.
+O projeto usa HTML, CSS e JavaScript vanilla com ES Modules. Nao ha framework, etapa de build, servidor de aplicacao ou banco externo obrigatorio: os dados-base ficam em JSON e o progresso do estudante fica salvo no navegador.
+
+## Sumario
+
+- [Recursos](#recursos)
+- [Stack tecnica](#stack-tecnica)
+- [Requisitos](#requisitos)
+- [Como rodar localmente](#como-rodar-localmente)
+- [Testes](#testes)
+- [Arquitetura](#arquitetura)
+- [Dados e persistencia](#dados-e-persistencia)
+- [Backup e importacao](#backup-e-importacao)
+- [Integracao com Mathicx-File](#integracao-com-mathicx-file)
+- [Roadmap](#roadmap)
+- [Troubleshooting](#troubleshooting)
 
 ## Recursos
 
-- Estudo de hiragana, katakana e kanji N5.
-- Busca por romaji, kana, kanji, leitura ou significado.
-- Dicionario local com palavras em japones, romaji e definicoes.
-- Dashboard de aprendizado com progresso e atividade recente.
-- Quiz, flashcards e revisoes com repeticao espacada.
-- Favoritos e historico local.
-- Pratica de escrita em canvas.
-- Suporte a animacoes de tracos quando assets SVG estiverem disponiveis.
+- Estudo de hiragana, katakana e uma fatia inicial de Kanji N5.
+- Busca por romaji, kana, kanji, leitura, significado, radical, tag e vocabulario.
+- Dicionario local com palavras em kana e kanji.
+- Dashboard com progresso, atividade recente, tempo de estudo, SRS, Kanji N5 e ultimos caracteres vistos.
+- Assistente de Estudo Diario v2 com recomendacao explicavel, motivo, evidencias, acao sugerida e proximo passo.
+- Quiz com reconhecimento, romaji para japones, digitacao, producao ativa, flashcards e modos especificos de kanji.
+- Revisao de erros dentro da sessao de quiz.
+- Sistema SRS local com estados `new`, `learning`, `review` e `mastered`.
+- Favoritos de caracteres e favoritos separados para palavras do dicionario.
+- Historico local de estudo e historico de consultas do dicionario.
+- Pratica de escrita em canvas com avaliacao baseada em tracos quando ha modelo comparavel.
+- Mnemotecnicos pessoais salvos localmente por caractere.
+- Exportacao, validacao, mescla, substituicao e exclusao de dados locais.
+- Integracao por iframe com o ecossistema Mathicx-File via `manifest.js` e `view.js`.
+
+## Stack tecnica
+
+| Area | Tecnologia |
+| --- | --- |
+| Linguagem | JavaScript moderno com ES Modules |
+| UI | HTML5, CSS3 e DOM APIs |
+| Build | Nenhum build obrigatorio |
+| Dados-base | Arquivos JSON em `data/` |
+| Persistencia local | LocalStorage e IndexedDB |
+| Testes | `node --test` |
+| Integracao host | `postMessage`, `manifest.js` e `view.js` |
 
 ## Requisitos
 
-Para usar a aplicacao localmente, voce precisa de uma destas opcoes:
+Para usar o app:
 
-- Node.js instalado, recomendado para rodar testes e usar ferramentas via `npx`.
-- Python 3 instalado, caso prefira subir um servidor estatico simples.
+- Um navegador moderno com suporte a ES Modules, `fetch`, LocalStorage e IndexedDB.
+- Um servidor estatico local, porque o app carrega JSON por `fetch`.
 
-Como o app usa ES Modules e carrega arquivos JSON por `fetch`, abra a aplicacao por um servidor local. Evite abrir o `index.html` diretamente no navegador.
+Para desenvolver e testar:
 
-## Instalacao
+- Node.js recomendado para rodar a suite de testes.
+- Python 3 ou `npx http-server` para servir os arquivos localmente.
 
-Clone o repositorio:
+Nao ha dependencias npm obrigatorias de runtime.
+
+## Como rodar localmente
+
+### 1. Clone o repositorio
 
 ```bash
 git clone https://github.com/mathicx-file/Japanese_study.git
 cd Japanese_study
 ```
 
-Este projeto nao possui dependencias obrigatorias de runtime. Se quiser apenas usar a aplicacao, nao e necessario instalar pacotes.
+Se voce estiver usando este workspace local, o diretorio atual esperado e:
 
-## Iniciando o servidor
+```text
+D:\AI\Japonese\Applications\japanese-study
+```
+
+### 2. Suba um servidor estatico
 
 Opcao com Python:
 
@@ -43,43 +84,63 @@ Opcao com Python:
 python -m http.server 8080
 ```
 
-Depois acesse:
-
-```text
-http://localhost:8080
-```
-
-Opcao com Node.js:
+Opcao com Node via `npx`:
 
 ```bash
 npx http-server . -p 8080
 ```
 
-Depois acesse:
+Depois abra:
 
 ```text
 http://localhost:8080
 ```
 
+Evite abrir `index.html` diretamente no navegador. Alguns navegadores bloqueiam `fetch` de arquivos JSON quando a pagina roda via `file://`.
+
 ## Testes
 
-Para executar a suite de testes:
+Execute todos os testes:
 
 ```bash
 npm test
 ```
 
-No PowerShell do Windows, se a politica de execucao bloquear o `npm`, use:
+No PowerShell do Windows, se `npm` for bloqueado pela politica de execucao:
 
 ```powershell
 npm.cmd test
 ```
 
-## Estrutura do projeto
+A suite atual cobre:
+
+- Motor adaptativo, recomendacoes e assistente diario.
+- SRS e normalizacao de registros.
+- Conversao romaji para kana.
+- Quiz, fila de revisao de erros e modos de Kanji N5.
+- Busca de kanji por significado, leitura, radical, tag e vocabulario.
+- Validacao de backup e limpeza de dados locais.
+
+## Scripts disponiveis
+
+| Comando | Descricao |
+| --- | --- |
+| `npm test` | Roda a suite com `node --test`. |
+| `npm.cmd test` | Alternativa para PowerShell no Windows. |
+| `python -m http.server 8080` | Sobe servidor estatico local. |
+| `npx http-server . -p 8080` | Alternativa de servidor estatico via Node. |
+
+## Arquitetura
+
+O app e um SPA simples sem roteador formal. A navegacao principal acontece por abas na tela, e os modulos ES ficam separados por responsabilidade.
 
 ```text
 .
 |-- assets/
+|   `-- strokes/
+|       |-- kana/
+|       |-- kanji/
+|       `-- README.md
 |-- css/
 |   `-- styles.css
 |-- data/
@@ -102,16 +163,266 @@ npm.cmd test
 |   |-- study-engine.js
 |   `-- ui.js
 |-- tests/
+|-- DOCUMENTATION.md
 |-- index.html
 |-- manifest.js
 |-- package.json
+|-- README.md
 `-- view.js
 ```
 
-## Dados locais
+### Fluxo de inicializacao
 
-O progresso, favoritos e informacoes de estudo sao armazenados no navegador usando APIs locais como LocalStorage e IndexedDB. Esses dados nao sao enviados para servidor externo.
+1. `index.html` carrega `js/app.js`.
+2. `app.js` inicializa a UI e carrega os JSONs de hiragana, katakana, kanji e dicionario.
+3. Os dados sao normalizados com `script` e `category`.
+4. `JapaneseSearch`, `JapaneseDictionary`, `JapaneseQuiz` e `JapaneseUI` recebem os dados.
+5. O dashboard e renderizado com estatisticas de `JapaneseStorage`.
+6. A busca, filtros, quiz, dicionario, backup e modal passam a responder aos eventos da UI.
 
-## Integracao
+### Modulos principais
 
-O arquivo `manifest.js` contem metadados para integracao com o ecossistema Mathicx-File, e `view.js` atua como adaptador para carregamento em iframe pelo host.
+| Modulo | Responsabilidade |
+| --- | --- |
+| `js/app.js` | Orquestra carregamento, eventos, filtros, backup, estatisticas e sessoes. |
+| `js/ui.js` | Renderiza dashboard, grid, dicionario, quiz, modal, SRS, escrita e estados visuais. |
+| `js/storage.js` | Centraliza LocalStorage, IndexedDB, progresso, favoritos, SRS, settings, backup e importacao. |
+| `js/search.js` | Busca em kana e kanji, incluindo campos de significado, leitura, radical, tags e vocabulario. |
+| `js/dictionary.js` | Mantem e filtra palavras do dicionario local. |
+| `js/quiz.js` | Gera perguntas, valida respostas, controla placar e revisao de erros. |
+| `js/srs-engine.js` | Calcula agenda de repeticao espacada, intervalos, facilidade, streak e normalizacao. |
+| `js/study-engine.js` | Converte recomendacoes em sessoes de estudo executaveis. |
+| `js/recommendation-engine.js` | Produz recomendacoes explicaveis com `schemaVersion`, motivo, evidencias, acao e proximo passo. |
+| `js/learning-levels.js` | Calcula nivel de aprendizado com base em progresso, streak, SRS e quiz. |
+| `js/practice.js` | Controla canvas e comparacao de escrita. |
+| `js/stroke-player.js` | Carrega SVG local ou remoto e anima tracos. |
+| `js/kana-input.js` | Converte romaji digitado para hiragana ou katakana. |
+
+### Assistente de Estudo Diario
+
+O assistente atual e deterministico e local. Ele nao chama IA externa.
+
+O contrato retornado pelo motor de recomendacao inclui:
+
+```js
+{
+  schemaVersion: 1,
+  type: 'review',
+  title: 'Revisar pendentes',
+  description: '...',
+  reason: '...',
+  evidence: ['...'],
+  action: 'study-now',
+  actionLabel: 'Revisar agora',
+  nextStep: '...',
+  session: {
+    reason: 'review-due',
+    script: 'all',
+    categories: ['gojuuon', 'dakuon', 'handakuon', 'youon', 'N5'],
+    mode: 'multiple-choice',
+    limit: 10
+  }
+}
+```
+
+Prioridade atual:
+
+1. Revisoes SRS vencidas.
+2. Erros recorrentes recentes.
+3. Proximo bloco da ementa.
+4. Kanji N5 quando hiragana e katakana ja estao fortes.
+
+## Dados e persistencia
+
+O app e local-first. Dados do usuario nao sao enviados para servidor.
+
+### Dados-base
+
+| Arquivo | Conteudo |
+| --- | --- |
+| `data/hiragana.json` | Caracteres hiragana, categoria, tracos e exemplos. |
+| `data/katakana.json` | Caracteres katakana, categoria, tracos e exemplos. |
+| `data/kanji.json` | Fatia inicial de Kanji N5 com leituras, significados, radical, componentes, exemplos e tags. |
+| `data/dictionary.json` | Palavras locais em kana e kanji, com leitura, romaji e definicao. |
+
+### LocalStorage
+
+| Chave | Conteudo |
+| --- | --- |
+| `japanese_favorites` | IDs de caracteres favoritos. |
+| `japanese_dictionary_favorites` | IDs de palavras favoritas. |
+| `japanese_srs` | Mapa de registros SRS por caractere. |
+| `japanese_settings` | Preferencias, quiz, diagnostico e mnemonicos. |
+
+### IndexedDB
+
+| Campo | Valor |
+| --- | --- |
+| Banco | `JapaneseStudyDB` |
+| Versao | `2` |
+| Object store | `japanese_progress` |
+| Indices | `timestamp`, `type`, `charId`, `schemaVersion` |
+
+Tipos comuns de registro:
+
+- `view`: caractere aberto no modal.
+- `study_time`: minutos de sessao registrados.
+- `dictionary_view`: palavra consultada no dicionario.
+- `quiz_answer`: resposta correta de quiz.
+- `quiz_error`: resposta incorreta de quiz.
+
+Os registros persistidos usam `schemaVersion` e `entityType` para facilitar normalizacao e futura migracao para uma fonte remota.
+
+## Backup e importacao
+
+A aba "Dados" permite:
+
+- Exportar um backup JSON.
+- Validar um arquivo de backup antes de importar.
+- Mesclar backup com os dados atuais.
+- Substituir dados locais pelo backup.
+- Excluir dados locais com confirmacao.
+
+Formato geral:
+
+```json
+{
+  "format": "japanese-study-backup",
+  "schemaVersion": 1,
+  "appVersion": "2.0.0",
+  "exportedAt": "2026-06-30T00:00:00.000Z",
+  "data": {
+    "favorites": [],
+    "dictionaryFavorites": [],
+    "progress": [],
+    "srs": {},
+    "settings": {}
+  }
+}
+```
+
+Backups com `schemaVersion` maior que a versao suportada sao recusados para evitar perda ou interpretacao incorreta de dados.
+
+## Integracao com Mathicx-File
+
+O projeto possui dois arquivos para integracao com o host:
+
+- `manifest.js`: metadados, permissoes e capacidades.
+- `view.js`: adaptador que monta o app em iframe.
+
+Manifest atual:
+
+- `id`: `japanese-study`
+- `version`: `2.0.0`
+- `permissions`: `storage`, `indexeddb`, `downloads`
+- `capabilities.themes`: `true`
+- `capabilities.postMessage`: `true`
+- `capabilities.widgets`: `false`
+
+Mensagens aceitas pelo app:
+
+| Tipo | Efeito |
+| --- | --- |
+| `theme` | Sincroniza tema recebido do host. |
+| `refresh` | Recarrega a aplicacao. |
+| `focus` | Solicita foco da janela/iframe. |
+
+Mensagens enviadas ao host:
+
+| Tipo | Quando |
+| --- | --- |
+| `study-progress` | Ao abrir/estudar um caractere. |
+| `favorite-added` | Ao favoritar caractere. |
+| `favorite-removed` | Ao remover favorito. |
+
+O `view.js` cria o iframe com sandbox:
+
+```text
+allow-scripts allow-same-origin allow-storage-access-by-user-activation
+```
+
+## Roadmap
+
+Estado atual:
+
+- Hiragana e katakana: concluido.
+- Dicionario local: concluido.
+- SRS, quiz, flashcards e escrita: concluido.
+- Backup e importacao: concluido.
+- Aprendizagem adaptativa: concluido.
+- Kanji N5 inicial: concluido como fatia vertical com 10 kanji.
+- Assistente de Estudo Diario v2: iniciado com recomendacoes explicaveis e resumo pos-quiz.
+
+Proximos passos recomendados:
+
+1. Evoluir o assistente para plano semanal, objetivos configuraveis e analise de progresso.
+2. Aprofundar a integracao Mathicx-File com widget, launcher, deep links e notificacoes.
+3. Expandir Kanji N5 em blocos pequenos, mantendo validacao de dados e compatibilidade com backup.
+4. Avaliar Firebase ou outro banco somente quando houver necessidade real de dicionario remoto, sincronizacao multi-dispositivo ou atualizacao dinamica de palavras.
+
+## Futuro banco de dados
+
+O app deve continuar funcionando localmente nesta fase. Ainda assim, a arquitetura ja evita espalhar acesso a dados pela UI:
+
+- `JapaneseStorage` centraliza progresso, settings, SRS, favoritos e backup.
+- `JapaneseDictionary` isola consulta ao dicionario.
+- `JapaneseSearch` isola busca sobre caracteres e kanji.
+- O assistente usa contratos versionados com `schemaVersion`.
+- IDs de kana, kanji, palavras e eventos sao estaveis o suficiente para sincronizacao futura.
+
+Firebase e uma opcao futura, mas nao e dependencia atual. Outras alternativas tambem podem fazer sentido dependendo do objetivo:
+
+- Firebase/Firestore para sincronizacao e atualizacao dinamica simples.
+- Supabase/Postgres se o projeto precisar de consultas relacionais mais fortes.
+- Meilisearch/Algolia se o dicionario crescer e precisar de busca textual/fuzzy dedicada.
+
+## Troubleshooting
+
+### A pagina abre, mas os dados nao carregam
+
+Provavelmente o app foi aberto via `file://`.
+
+Use um servidor estatico:
+
+```bash
+python -m http.server 8080
+```
+
+Depois acesse:
+
+```text
+http://localhost:8080
+```
+
+### `npm` nao roda no PowerShell
+
+Use:
+
+```powershell
+npm.cmd test
+```
+
+### Perdi progresso local
+
+O progresso fica no navegador. Se voce limpar dados do site, LocalStorage ou IndexedDB, o historico local pode ser removido. Use a aba "Dados" para exportar backup antes de limpar ou trocar de navegador.
+
+### SVG de tracos nao aparece
+
+O app tenta carregar SVG local em `assets/strokes/` antes de recorrer ao fallback remoto do KanjiVG. Se nao houver asset local e a rede bloquear o acesso remoto, a animacao real de tracos pode nao aparecer.
+
+### Backup nao importa
+
+Verifique se o JSON possui:
+
+- `format: "japanese-study-backup"`
+- `schemaVersion` suportado pelo app
+- objeto `data`
+
+Backups de versoes futuras podem ser recusados de proposito.
+
+## Documentacao complementar
+
+Para detalhes de roadmap, arquitetura e decisoes de produto, veja:
+
+- `DOCUMENTATION.md`
+- `assets/strokes/README.md`

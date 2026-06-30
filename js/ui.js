@@ -310,6 +310,12 @@ export const JapaneseUI = (() => {
   }
 
   function handleAdaptiveDashboardClick(e) {
+    const assistantBtn = e.target.closest('[data-assistant-action]');
+    if (assistantBtn) {
+      if (typeof onStudyNow === 'function') onStudyNow();
+      return;
+    }
+
     const trailBtn = e.target.closest('[data-guided-trail]');
     if (trailBtn) {
       if (typeof onGuidedTrail === 'function') onGuidedTrail(trailBtn.dataset.guidedTrail);
@@ -409,6 +415,7 @@ export const JapaneseUI = (() => {
           '<div class="quiz-complete-title">Sess\u00e3o conclu\u00edda</div>' +
           '<div class="quiz-complete-detail">' + (stats.correct || 0) + ' acertos em ' + (stats.answered || 0) + ' respostas.</div>' +
         '</div>' +
+        renderSessionSummary(stats, context) +
         '<div class="quiz-actions">' +
           '<button class="quiz-secondary-btn" data-quiz-action="reset">Nova sess\u00e3o</button>' +
         '</div>';
@@ -445,7 +452,33 @@ export const JapaneseUI = (() => {
       '<div class="quiz-session-label">' + label + '</div>' +
       '<strong>' + context.title + '</strong>' +
       (context.description ? '<p>' + context.description + '</p>' : '') +
+      (context.assistant?.reason ? '<p><strong>Motivo:</strong> ' + escapeHtml(context.assistant.reason) + '</p>' : '') +
     '</div>';
+  }
+
+  function renderSessionSummary(stats = {}, context = {}) {
+    const accuracy = Number(stats.accuracy || 0);
+    const nextStep = context?.assistant?.nextStep || getDefaultSessionNextStep(accuracy);
+    const tone = accuracy >= 80 ? 'good' : accuracy >= 50 ? 'steady' : 'attention';
+
+    return '<div class="quiz-complete-summary ' + tone + '">' +
+      '<div class="quiz-session-label">Resumo do assistente</div>' +
+      '<strong>' + getSessionSummaryTitle(accuracy) + '</strong>' +
+      '<p>Precisao da sessao: ' + accuracy + '%.</p>' +
+      '<p>Proximo passo: ' + escapeHtml(nextStep) + '</p>' +
+    '</div>';
+  }
+
+  function getSessionSummaryTitle(accuracy) {
+    if (accuracy >= 80) return 'Bom ritmo para avancar';
+    if (accuracy >= 50) return 'Reforce antes de acelerar';
+    return 'Volte para uma sessao curta de base';
+  }
+
+  function getDefaultSessionNextStep(accuracy) {
+    if (accuracy >= 80) return 'Continue com a proxima recomendacao do dashboard.';
+    if (accuracy >= 50) return 'Repita um bloco curto com revisoes de erro ativadas.';
+    return 'Foque nos itens errados antes de incluir conteudo novo.';
   }
 
   function updateQuizScore(stats = {}) {
@@ -1236,6 +1269,14 @@ export const JapaneseUI = (() => {
 
   function renderAdaptiveDashboard(level, recommendation, difficulty, syllabus, guidedTrails, quickSessions) {
     return (
+      '<section class="adaptive-card assistant-card">' +
+        '<div class="adaptive-label">Assistente diario</div>' +
+        '<h3>' + escapeHtml(recommendation.title || 'Comecar por hiragana basico') + '</h3>' +
+        '<p>' + escapeHtml(recommendation.description || 'Faca uma sessao curta para iniciar seu historico.') + '</p>' +
+        renderAssistantEvidence(recommendation) +
+        '<div class="assistant-reason"><strong>Motivo</strong><span>' + escapeHtml(recommendation.reason || 'Sessao curta escolhida pelo seu progresso atual.') + '</span></div>' +
+        '<button class="dashboard-primary-btn assistant-action" type="button" data-assistant-action="study-now">' + escapeHtml(recommendation.actionLabel || 'Estudar agora') + '</button>' +
+      '</section>' +
       '<section class="adaptive-card level-card">' +
         '<div class="adaptive-label">Nível atual</div>' +
         '<h3>Nível ' + (level.level || 1) + ' — ' + (level.title || 'Aprendiz de Kana') + '</h3>' +
@@ -1245,7 +1286,7 @@ export const JapaneseUI = (() => {
       '<section class="adaptive-card next-step-card">' +
         '<div class="adaptive-label">Próximo passo</div>' +
         '<h3>' + (recommendation.title || 'Começar por hiragana básico') + '</h3>' +
-        '<p>' + (recommendation.description || 'Faça uma sessão curta para iniciar seu histórico.') + '</p>' +
+        '<p>' + escapeHtml(recommendation.nextStep || recommendation.description || 'Faca uma sessao curta para iniciar seu historico.') + '</p>' +
       '</section>' +
       '<section class="adaptive-card syllabus-card">' +
         '<div class="adaptive-label">Ementa</div>' +
@@ -1273,6 +1314,14 @@ export const JapaneseUI = (() => {
         '<strong>' + item.title + '</strong>' +
         '<span>' + (item.description || 'Sess\u00e3o guiada curta.') + '</span>' +
       '</button>'
+    ).join('') + '</div>';
+  }
+
+  function renderAssistantEvidence(recommendation = {}) {
+    const evidence = Array.isArray(recommendation.evidence) ? recommendation.evidence : [];
+    if (!evidence.length) return '';
+    return '<div class="assistant-evidence">' + evidence.slice(0, 4).map(item =>
+      '<span>' + escapeHtml(item) + '</span>'
     ).join('') + '</div>';
   }
 

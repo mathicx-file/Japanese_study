@@ -248,6 +248,50 @@ body {
   box-shadow: var(--card-shadow);
 }
 
+.assistant-card {
+  grid-column: span 2;
+}
+
+.assistant-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.65rem 0;
+}
+
+.assistant-evidence span {
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: var(--tag-bg);
+  color: var(--tag-color);
+  font-size: 0.72rem;
+}
+
+.assistant-reason {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0.75rem 0;
+  padding: 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+
+.assistant-reason strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.assistant-reason span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.assistant-action {
+  margin-top: 0.15rem;
+}
+
 .adaptive-card h3 {
   margin-bottom: 0.45rem;
   color: var(--text-primary);
@@ -960,6 +1004,35 @@ body {
   font-size: 0.9rem;
 }
 
+.quiz-complete-summary {
+  margin-top: 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+
+.quiz-complete-summary.good {
+  border-left-color: var(--success);
+}
+
+.quiz-complete-summary.attention {
+  border-left-color: var(--danger);
+}
+
+.quiz-complete-summary strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.98rem;
+}
+
+.quiz-complete-summary p {
+  margin-top: 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
 .quiz-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1642,6 +1715,7 @@ body {
   .dashboard-metrics,
   .adaptive-dashboard,
   .dashboard-panels { grid-template-columns: 1fr; }
+  .assistant-card { grid-column: auto; }
   .view-tabs,
   .dictionary-toolbar,
   .dictionary-header,

@@ -4,12 +4,20 @@ export const JapaneseStudyEngine = (() => {
   function buildSession(context = {}) {
     const recommendation = JapaneseRecommendationEngine.recommend(context);
     const session = recommendation.session || {};
-    const script = resolveScript(session.script, context);
+    const script = resolveScript(session.script, context, session.reason);
 
     return {
       reason: session.reason || recommendation.type || 'default',
-      title: recommendation.title || 'Sessão recomendada',
-      description: recommendation.description || 'Sessão curta montada com base no seu progresso.',
+      title: recommendation.title || 'Sessao recomendada',
+      description: recommendation.description || 'Sessao curta montada com base no seu progresso.',
+      assistant: {
+        schemaVersion: recommendation.schemaVersion || 1,
+        type: recommendation.type || 'syllabus',
+        reason: recommendation.reason || '',
+        evidence: Array.isArray(recommendation.evidence) ? recommendation.evidence : [],
+        actionLabel: recommendation.actionLabel || 'Estudar agora',
+        nextStep: recommendation.nextStep || ''
+      },
       quiz: {
         mode: session.mode || 'multiple-choice',
         script,
@@ -20,7 +28,8 @@ export const JapaneseStudyEngine = (() => {
     };
   }
 
-  function resolveScript(script, context) {
+  function resolveScript(script, context, reason) {
+    if (script === 'all' && (reason === 'review-due' || reason === 'recent-errors')) return 'all';
     if (script && script !== 'all') return script;
 
     const completion = context.completion || {};

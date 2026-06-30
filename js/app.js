@@ -391,7 +391,8 @@ const JapaneseApp = (() => {
     activeQuizContext = {
       type: 'recommended',
       title: session.title || 'Sess\u00e3o recomendada',
-      description: session.description || 'Sess\u00e3o montada com base no seu progresso atual.'
+      description: session.description || 'Sess\u00e3o montada com base no seu progresso atual.',
+      assistant: session.assistant || null
     };
     JapaneseUI.applyQuizSettings(session.quiz);
     persistQuizSettings();
