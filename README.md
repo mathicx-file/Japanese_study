@@ -1,6 +1,6 @@
 # Japanese Study
 
-Aplicacao web local-first para estudar hiragana, katakana e Kanji N5, com pratica diaria, consulta rapida, repeticao espacada, quiz, escrita, backup e recomendacoes adaptativas.
+Aplicacao web local-first para estudar hiragana, katakana e Kanji N5, com pratica diaria, consulta rapida, repeticao espacada, quiz, digitacao guiada, escrita, backup e recomendacoes adaptativas.
 
 O projeto usa HTML, CSS e JavaScript vanilla com ES Modules. Nao ha framework, etapa de build, servidor de aplicacao ou banco externo obrigatorio: os dados-base ficam em JSON e o progresso do estudante fica salvo no navegador.
 
@@ -26,6 +26,7 @@ O projeto usa HTML, CSS e JavaScript vanilla com ES Modules. Nao ha framework, e
 - Dashboard com progresso, atividade recente, tempo de estudo, SRS, Kanji N5 e ultimos caracteres vistos.
 - Assistente de Estudo Diario v2 com recomendacao explicavel, motivo, evidencias, acao sugerida e proximo passo.
 - Quiz com reconhecimento, romaji para japones, digitacao, producao ativa, flashcards e modos especificos de kanji.
+- Digitacao guiada v2.1 com frases curtas em hiragana, copia guiada, conversao romaji para kana, feedback simples e resumo da sessao.
 - Revisao de erros dentro da sessao de quiz.
 - Sistema SRS local com estados `new`, `learning`, `review` e `mastered`.
 - Favoritos de caracteres e favoritos separados para palavras do dicionario.
@@ -117,6 +118,7 @@ A suite atual cobre:
 - Motor adaptativo, recomendacoes e assistente diario.
 - SRS e normalizacao de registros.
 - Conversao romaji para kana.
+- Digitacao guiada, avaliacao de respostas e persistencia de sessoes.
 - Quiz, fila de revisao de erros e modos de Kanji N5.
 - Busca de kanji por significado, leitura, radical, tag e vocabulario.
 - Validacao de backup e limpeza de dados locais.
@@ -147,7 +149,8 @@ O app e um SPA simples sem roteador formal. A navegacao principal acontece por a
 |   |-- dictionary.json
 |   |-- hiragana.json
 |   |-- kanji.json
-|   `-- katakana.json
+|   |-- katakana.json
+|   `-- typing-exercises.json
 |-- js/
 |   |-- app.js
 |   |-- dictionary.js
@@ -161,6 +164,9 @@ O app e um SPA simples sem roteador formal. A navegacao principal acontece por a
 |   |-- storage.js
 |   |-- stroke-player.js
 |   |-- study-engine.js
+|   |-- typing-content-provider.js
+|   |-- typing-evaluator.js
+|   |-- typing-session.js
 |   `-- ui.js
 |-- tests/
 |-- DOCUMENTATION.md
@@ -174,11 +180,11 @@ O app e um SPA simples sem roteador formal. A navegacao principal acontece por a
 ### Fluxo de inicializacao
 
 1. `index.html` carrega `js/app.js`.
-2. `app.js` inicializa a UI e carrega os JSONs de hiragana, katakana, kanji e dicionario.
+2. `app.js` inicializa a UI e carrega os JSONs de hiragana, katakana, kanji, dicionario e exercicios de digitacao.
 3. Os dados sao normalizados com `script` e `category`.
-4. `JapaneseSearch`, `JapaneseDictionary`, `JapaneseQuiz` e `JapaneseUI` recebem os dados.
+4. `JapaneseSearch`, `JapaneseDictionary`, `JapaneseQuiz`, `JapaneseTypingContentProvider` e `JapaneseUI` recebem os dados.
 5. O dashboard e renderizado com estatisticas de `JapaneseStorage`.
-6. A busca, filtros, quiz, dicionario, backup e modal passam a responder aos eventos da UI.
+6. A busca, filtros, quiz, digitacao guiada, dicionario, backup e modal passam a responder aos eventos da UI.
 
 ### Modulos principais
 
@@ -197,6 +203,9 @@ O app e um SPA simples sem roteador formal. A navegacao principal acontece por a
 | `js/practice.js` | Controla canvas e comparacao de escrita. |
 | `js/stroke-player.js` | Carrega SVG local ou remoto e anima tracos. |
 | `js/kana-input.js` | Converte romaji digitado para hiragana ou katakana. |
+| `js/typing-content-provider.js` | Carrega, normaliza e filtra exercicios locais de digitacao guiada. |
+| `js/typing-evaluator.js` | Normaliza respostas, compara com alternativas aceitas e identifica o primeiro erro. |
+| `js/typing-session.js` | Controla a sessao de digitacao, progresso, resumo, precisao e velocidade. |
 
 ### Assistente de Estudo Diario
 
@@ -244,6 +253,7 @@ O app e local-first. Dados do usuario nao sao enviados para servidor.
 | `data/katakana.json` | Caracteres katakana, categoria, tracos e exemplos. |
 | `data/kanji.json` | Fatia inicial de Kanji N5 com leituras, significados, radical, componentes, exemplos e tags. |
 | `data/dictionary.json` | Palavras locais em kana e kanji, com leitura, romaji e definicao. |
+| `data/typing-exercises.json` | Exercicios revisados de digitacao guiada, com prompt em portugues, resposta japonesa, romaji de apoio e tokens. |
 
 ### LocalStorage
 
@@ -270,6 +280,9 @@ Tipos comuns de registro:
 - `dictionary_view`: palavra consultada no dicionario.
 - `quiz_answer`: resposta correta de quiz.
 - `quiz_error`: resposta incorreta de quiz.
+- `typing_session`: resumo de uma sessao de digitacao guiada.
+- `typing_step`: resposta correta em um exercicio de digitacao guiada.
+- `typing_error`: resposta incorreta em um exercicio de digitacao guiada.
 
 Os registros persistidos usam `schemaVersion` e `entityType` para facilitar normalizacao e futura migracao para uma fonte remota.
 
@@ -351,14 +364,16 @@ Estado atual:
 - Backup e importacao: concluido.
 - Aprendizagem adaptativa: concluido.
 - Kanji N5 inicial: concluido como fatia vertical com 10 kanji.
+- Digitacao guiada v2.1: concluido como MVP local-first com hiragana, copia guiada, JSON local, feedback e persistencia.
 - Assistente de Estudo Diario v2: iniciado com recomendacoes explicaveis e resumo pos-quiz.
 
 Proximos passos recomendados:
 
-1. Evoluir o assistente para plano semanal, objetivos configuraveis e analise de progresso.
-2. Aprofundar a integracao Mathicx-File com widget, launcher, deep links e notificacoes.
-3. Expandir Kanji N5 em blocos pequenos, mantendo validacao de dados e compatibilidade com backup.
-4. Avaliar Firebase ou outro banco somente quando houver necessidade real de dicionario remoto, sincronizacao multi-dispositivo ou atualizacao dinamica de palavras.
+1. Expandir a digitacao guiada com katakana, traducao guiada, dicas e textos medios.
+2. Evoluir o assistente para plano semanal, objetivos configuraveis e analise de progresso.
+3. Aprofundar a integracao Mathicx-File com widget, launcher, deep links e notificacoes.
+4. Expandir Kanji N5 em blocos pequenos, mantendo validacao de dados e compatibilidade com backup.
+5. Avaliar Firebase ou outro banco somente quando houver necessidade real de dicionario remoto, sincronizacao multi-dispositivo ou atualizacao dinamica de palavras.
 
 ## Futuro banco de dados
 

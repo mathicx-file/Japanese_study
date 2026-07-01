@@ -8,6 +8,9 @@ import { JapaneseQuiz } from './quiz.js';
 import { JapaneseStudyEngine } from './study-engine.js';
 import { JapaneseLearningLevels } from './learning-levels.js';
 import { JapaneseRecommendationEngine } from './recommendation-engine.js';
+import { JapaneseTypingContentProvider } from './typing-content-provider.js';
+import { JapaneseTypingEvaluator } from './typing-evaluator.js';
+import { createTypingSession } from './typing-session.js';
 
 const JapaneseApp = (() => {
   let allData = [];
@@ -21,6 +24,9 @@ const JapaneseApp = (() => {
   let dictionarySearchTimer = null;
   let selectedBackup = null;
   let activeQuizContext = null;
+  let activeTypingSession = null;
+  let currentTypingValue = '';
+  let currentTypingResult = null;
 
   function init() {
     if (initialized) return;
@@ -35,8 +41,9 @@ const JapaneseApp = (() => {
       loadJSON('data/hiragana.json'),
       loadJSON('data/katakana.json'),
       loadJSON('data/kanji.json'),
-      loadJSON('data/dictionary.json')
-    ]).then(([hira, kata, kanji, dictionary]) => {
+      loadJSON('data/dictionary.json'),
+      loadJSON('data/typing-exercises.json')
+    ]).then(([hira, kata, kanji, dictionary, typingExercises]) => {
       hiraganaData = (hira.characters || hira).map(c => ({ ...c, script: 'hiragana' }));
       katakanaData = (kata.characters || kata).map(c => ({ ...c, script: 'katakana' }));
       kanjiData = (kanji.kanji || kanji.characters || kanji).map(c => ({ ...c, script: 'kanji', category: c.level || 'N5' }));
@@ -50,8 +57,10 @@ const JapaneseApp = (() => {
       JapaneseSearch.setData(allData);
       JapaneseDictionary.setData(dictionaryData);
       JapaneseQuiz.setData(allData);
+      JapaneseTypingContentProvider.setData(typingExercises);
       JapaneseUI.setCharacters(allData);
       JapaneseUI.applyQuizSettings(getSavedQuizSettings());
+      JapaneseUI.applyTypingSettings(getSavedTypingSettings());
 
       const categories = [...new Set(allData.map(c => c.category))];
       JapaneseUI.renderFilters(categories, '');
@@ -59,6 +68,7 @@ const JapaneseApp = (() => {
       const initialChars = allData.filter(c => c.script === 'hiragana');
       JapaneseUI.renderGrid(initialChars);
       renderDictionary();
+      renderTyping();
 
       JapaneseSearch.onResults((results) => {
         JapaneseUI.renderGrid(results);
@@ -104,6 +114,29 @@ const JapaneseApp = (() => {
         activeQuizContext = null;
         JapaneseQuiz.resetStats();
         renderQuiz();
+      });
+
+      JapaneseUI.onTypingSettingsChangeCallback(() => {
+        persistTypingSettings();
+        resetTypingSession();
+      });
+
+      JapaneseUI.onTypingStartCallback((settings) => {
+        startTypingSession(settings);
+      });
+
+      JapaneseUI.onTypingInputCallback((value) => {
+        currentTypingValue = value;
+        currentTypingResult = null;
+        renderTyping();
+      });
+
+      JapaneseUI.onTypingSubmitCallback((value) => {
+        submitTypingAnswer(value);
+      });
+
+      JapaneseUI.onTypingResetCallback(() => {
+        resetTypingSession();
       });
 
       JapaneseUI.onBackupExportCallback(() => {
@@ -169,6 +202,10 @@ const JapaneseApp = (() => {
       renderQuiz();
       return;
     }
+    if (JapaneseUI.getCurrentView() === 'typing') {
+      renderTyping();
+      return;
+    }
     if (JapaneseUI.getCurrentView() === 'data') return;
 
     const query = document.getElementById('search-input').value;
@@ -186,6 +223,7 @@ const JapaneseApp = (() => {
         return;
       }
       if (JapaneseUI.getCurrentView() === 'quiz') return;
+      if (JapaneseUI.getCurrentView() === 'typing') return;
 
       const filters = JapaneseUI.getFilters();
       JapaneseSearch.debouncedSearch(input.value, filters);
@@ -242,7 +280,7 @@ const JapaneseApp = (() => {
           JapaneseUI.updateCardFavoriteState(data.charId);
         }
         loadStats();
-      } else if (type === 'progress-updated' || type === 'study-time-updated' || type === 'quiz-updated') {
+      } else if (type === 'progress-updated' || type === 'study-time-updated' || type === 'quiz-updated' || type === 'typing-updated') {
         loadStats();
       } else if (type === 'srs-updated') {
         if (JapaneseUI.getFilters().dueReview) applyFilters();
@@ -385,6 +423,74 @@ const JapaneseApp = (() => {
     completeDiagnosticIfNeeded(currentQuizQuestion, JapaneseQuiz.getStats());
   }
 
+  function renderTyping(extra = {}) {
+    const exercise = activeTypingSession?.getCurrentExercise() || null;
+    const summary = activeTypingSession?.getSummary() || null;
+    JapaneseUI.renderTyping({
+      started: Boolean(activeTypingSession),
+      complete: Boolean(summary?.completed),
+      exercise,
+      summary,
+      currentValue: currentTypingValue,
+      feedback: exercise ? JapaneseTypingEvaluator.getLiveFeedback(currentTypingValue, exercise) : null,
+      result: currentTypingResult,
+      ...extra
+    });
+  }
+
+  function startTypingSession(settings = JapaneseUI.getTypingSettings()) {
+    const session = JapaneseTypingContentProvider.buildSession(settings);
+    if (!session.exercises.length) {
+      JapaneseUI.renderTyping({
+        started: false,
+        error: 'Nenhum exercicio local encontrado para estes filtros.'
+      });
+      return;
+    }
+
+    activeTypingSession = createTypingSession(session.exercises, session.settings);
+    currentTypingValue = '';
+    currentTypingResult = null;
+    persistTypingSettings();
+    renderTyping();
+  }
+
+  function submitTypingAnswer(value) {
+    if (!activeTypingSession) {
+      startTypingSession();
+      return;
+    }
+
+    const exercise = activeTypingSession.getCurrentExercise();
+    const preview = JapaneseTypingEvaluator.evaluateAnswer(value, exercise);
+    if (preview.empty) {
+      currentTypingResult = preview;
+      currentTypingValue = value;
+      renderTyping();
+      return;
+    }
+
+    const submitted = activeTypingSession.submit(value);
+    currentTypingResult = submitted.result;
+    currentTypingValue = '';
+
+    const summary = activeTypingSession.getSummary();
+    if (summary.completed) {
+      JapaneseStorage.saveTypingSession(summary).then(() => {
+        JapaneseStorage.emitChange('typing-updated', summary);
+      }).catch(() => {});
+    }
+
+    renderTyping();
+  }
+
+  function resetTypingSession() {
+    activeTypingSession = null;
+    currentTypingValue = '';
+    currentTypingResult = null;
+    renderTyping();
+  }
+
   async function startRecommendedSession() {
     const context = await buildAdaptiveContext();
     const session = JapaneseStudyEngine.buildSession(context);
@@ -475,6 +581,7 @@ const JapaneseApp = (() => {
       const stats = await JapaneseStorage.getStats();
       const srsStats = JapaneseStorage.getSrsStats(allData);
       const quizStats = await JapaneseStorage.getQuizStats();
+      const typingStats = await JapaneseStorage.getTypingStats();
       const difficulty = await JapaneseStorage.getDifficultyMap(8);
       const completion = getCompletion(stats.studiedIds || []);
       const settings = JapaneseStorage.getSettings();
@@ -483,6 +590,7 @@ const JapaneseApp = (() => {
         stats,
         srsStats,
         quizStats,
+        typingStats,
         completion,
         difficulty,
         studiedIds: stats.studiedIds || [],
@@ -499,6 +607,7 @@ const JapaneseApp = (() => {
         stats,
         srsStats,
         quizStats,
+        typingStats,
         completion,
         favorites: favs.length,
         level,
@@ -517,6 +626,7 @@ const JapaneseApp = (() => {
       JapaneseUI.updateDashboard({
         stats: {},
         srsStats: JapaneseStorage.getSrsStats(allData),
+        typingStats: { sessions: 0, errors: 0, totalKanaTyped: 0, averageAccuracy: 0, recentErrors: [] },
         completion: getCompletion([]),
         favorites: JapaneseStorage.getFavorites().length,
         level: JapaneseLearningLevels.calculate({}),
@@ -533,6 +643,7 @@ const JapaneseApp = (() => {
     const stats = await JapaneseStorage.getStats();
     const srsStats = JapaneseStorage.getSrsStats(allData);
     const quizStats = await JapaneseStorage.getQuizStats();
+    const typingStats = await JapaneseStorage.getTypingStats();
     const difficulty = await JapaneseStorage.getDifficultyMap(8);
     const completion = getCompletion(stats.studiedIds || []);
     const settings = JapaneseStorage.getSettings();
@@ -541,6 +652,7 @@ const JapaneseApp = (() => {
       stats,
       srsStats,
       quizStats,
+      typingStats,
       completion,
       difficulty,
       studiedIds: stats.studiedIds || [],
@@ -559,11 +671,31 @@ const JapaneseApp = (() => {
     };
   }
 
+  function getSavedTypingSettings() {
+    const settings = JapaneseStorage.getSettings();
+    return {
+      script: settings.typing?.script || 'hiragana',
+      size: settings.typing?.size || 'small',
+      mode: settings.typing?.mode || 'copy',
+      level: settings.typing?.level || 'beginner',
+      category: settings.typing?.category || 'all',
+      limit: settings.typing?.limit || '5'
+    };
+  }
+
   function persistQuizSettings() {
     const settings = JapaneseStorage.getSettings();
     JapaneseStorage.setSettings({
       ...settings,
       quiz: JapaneseUI.getQuizSettings()
+    });
+  }
+
+  function persistTypingSettings() {
+    const settings = JapaneseStorage.getSettings();
+    JapaneseStorage.setSettings({
+      ...settings,
+      typing: JapaneseUI.getTypingSettings()
     });
   }
 

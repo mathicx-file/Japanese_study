@@ -5,9 +5,9 @@ Aplicação web standalone para estudo de hiragana e katakana, criada para ser c
 O projeto usa apenas HTML5, CSS3 e JavaScript vanilla com ES Modules. Não há etapa de build, bundler ou dependência de framework.
 
 ```text
-Versão atual: 2.0
+Versão atual: 2.1
 Última atualização da documentação: 2026-06-30
-Próxima versão recomendada: 2.1 - Assistente de Estudo Diário e integração profunda
+Próxima versão recomendada: 2.2 - Expansão da Digitação Guiada
 ```
 
 ## Objetivo
@@ -23,6 +23,7 @@ O app ajuda no aprendizado inicial da escrita japonesa, com foco em:
 - dicionário local;
 - repetição espaçada;
 - quiz e flashcards;
+- digitação guiada de frases curtas em hiragana;
 - reprodução animada de traços quando há SVG disponível;
 - prática de escrita em canvas.
 
@@ -45,11 +46,15 @@ Applications/japanese-study/
 │   ├── search.js
 │   ├── dictionary.js
 │   ├── quiz.js
-│   └── practice.js
+│   ├── practice.js
+│   ├── typing-content-provider.js
+│   ├── typing-evaluator.js
+│   └── typing-session.js
 ├── data/
 │   ├── hiragana.json
 │   ├── katakana.json
-│   └── dictionary.json
+│   ├── dictionary.json
+│   └── typing-exercises.json
 └── assets/
 ```
 
@@ -67,22 +72,27 @@ O projeto é dividido por responsabilidade:
 - `js/practice.js`: desenho em canvas e avaliação simples da escrita.
 - `js/quiz.js`: geração de perguntas, validação de respostas e pontuação do quiz.
 - `js/dictionary.js`: carregamento, busca, histórico e favoritos do dicionário.
+- `js/typing-content-provider.js`: carregamento, normalização e filtro dos exercícios locais de digitação guiada.
+- `js/typing-evaluator.js`: normalização, comparação de respostas e identificação do primeiro erro.
+- `js/typing-session.js`: controle da sessão, resumo, precisão e velocidade em kana por minuto.
 - `data/hiragana.json`: base de caracteres hiragana.
 - `data/katakana.json`: base de caracteres katakana.
 - `data/dictionary.json`: base local inicial de palavras.
+- `data/typing-exercises.json`: base local inicial de exercícios revisados para digitação guiada.
 - `manifest.js`: metadados para integração com o Mathicx-File.
 - `view.js`: adaptador de iframe para montagem dentro do host.
 
 ## Fluxo de Funcionamento
 
 1. O host ou navegador carrega `index.html`.
-2. `js/app.js` inicializa a UI e carrega `data/hiragana.json` e `data/katakana.json`.
+2. `js/app.js` inicializa a UI e carrega `data/hiragana.json`, `data/katakana.json`, `data/kanji.json`, `data/dictionary.json` e `data/typing-exercises.json`.
 3. Os caracteres recebem o campo `script`, com valores `hiragana` ou `katakana`.
 4. A tela inicial exibe a lista filtrada por hiragana.
 5. A busca e os filtros atualizam a grade sem recarregar a página.
 6. Ao clicar em um card, o modal de estudo é aberto.
 7. O modal registra progresso no IndexedDB e tenta carregar SVG de traços.
 8. O usuário pode navegar entre caracteres, favoritar ou praticar escrita no canvas.
+9. A aba de digitação guiada monta sessões locais com frases curtas em hiragana, converte romaji para kana e salva o resumo no IndexedDB.
 
 ## Dados
 
@@ -131,6 +141,12 @@ Registros de progresso usam este formato geral:
 }
 ```
 
+Tipos adicionais da versão 2.1:
+
+- `typing_session`: resumo de uma sessão de digitação guiada, com precisão, duração e kana por minuto.
+- `typing_step`: resposta correta em um exercício de digitação guiada.
+- `typing_error`: resposta incorreta em um exercício de digitação guiada.
+
 ## Integração com Mathicx-File
 
 O app foi preparado para rodar em:
@@ -178,8 +194,10 @@ Esta tabela substitui a leitura antiga de conformidade por uma visão centraliza
 | Consolidação e backup | Concluído | 1.6 | Exportação/importação, versionamento, migrações, SVG local e testes |
 | Aprendizagem adaptativa | Concluído | 1.7 | Estudar agora, níveis, recomendações, diagnóstico, mapa de dificuldades e quiz configurável |
 | Kanji N5 inicial | Concluído | 2.0 | Primeira fatia vertical com 10 kanji integrada a busca, dicionário, SRS, quiz, escrita, backup e dashboard |
-| Integração profunda | Planejado | 2.1 | Widget, launcher, deep links, notificações e status em tempo real |
-| Assistente de estudo diário | Em andamento | 2.1 | Recomendações explicáveis, evidências, sessão sugerida e resumo pós-quiz |
+| Digitação guiada | Concluído | 2.1 | MVP local-first com hiragana, cópia guiada, JSON local, conversão romaji para kana, feedback e persistência |
+| Expansão da digitação guiada | Planejado | 2.2 | Katakana, tradução guiada, dicas, textos médios e caderno de erros frasal |
+| Integração profunda | Planejado | 2.3 | Widget, launcher, deep links, notificações e status em tempo real |
+| Assistente de estudo diário | Em andamento | 1.7+ | Recomendações explicáveis, evidências, sessão sugerida e resumo pós-quiz |
 | Assistente de estudos avançado | Planejado | 3.0 | Plano semanal, objetivos, análise de progresso e orquestração mais completa |
 | Sincronização opcional | Planejado | 4.0 | Backup remoto, conflitos, conta opcional e cache local |
 
@@ -209,6 +227,7 @@ A aplicação deve continuar local-first e sem framework enquanto essa abordagem
 - `HostBridge`: centraliza integração com Mathicx-File e valida mensagens.
 - `StudyEngine`: monta sessões de revisão, quiz e escrita.
 - `RecommendationEngine`: gera recomendações a partir de erros, SRS e dificuldade.
+- `TypingContentProvider`, `TypingEvaluator` e `TypingSession`: mantêm conteúdo, avaliação e estado de digitação guiada separados da UI.
 
 A interface não deve precisar saber se os dados vieram de JSON local, IndexedDB, cache, SVG local, serviço remoto ou Firebase.
 
@@ -600,7 +619,63 @@ O estudante pode reconhecer um kanji sem dominar escrita, leituras e vocabulári
 
 Status atual: implementado como fatia vertical inicial com 10 kanji N5 em `data/kanji.json`, entradas de dicionário com kanji, busca por significado/leitura/radical/tag/vocabulário, integração com SRS, modos de quiz de kanji, prática de escrita, backup e métricas no dashboard. A expansão do conjunto N5 deve continuar em blocos pequenos, com validação de dados e sem trocar a fonte local nesta etapa.
 
-### Versão 2.1 - Integração Profunda com Mathicx-File
+### Versão 2.1 - Digitação Guiada
+
+Adicionar uma nova área de estudo para praticar digitação em japonês a partir de conteúdo local revisado.
+
+Objetivos:
+
+- criar uma aba própria de digitação guiada, separada do Quiz;
+- usar exercícios locais em `data/typing-exercises.json`;
+- começar com frases e palavras pequenas em hiragana;
+- exibir significado ou instrução em português;
+- exibir referência japonesa no modo de cópia guiada;
+- permitir que o usuário digite em romaji e veja a conversão progressiva para kana;
+- reutilizar `js/kana-input.js`, sem duplicar a tabela de conversão;
+- comparar a resposta convertida com a resposta japonesa esperada;
+- aceitar pontuação opcional cadastrada em `acceptedAnswers`;
+- mostrar feedback simples sobre erro, acerto e primeiro ponto divergente;
+- concluir com resumo de frases, precisão, erros e kana por minuto;
+- salvar sessões e erros no IndexedDB para backup e métricas futuras.
+
+Módulos adicionados:
+
+- `js/typing-content-provider.js`: normaliza, filtra e seleciona exercícios.
+- `js/typing-evaluator.js`: normaliza respostas, compara alternativas e localiza o primeiro erro.
+- `js/typing-session.js`: controla progresso, respostas, resumo, precisão e velocidade.
+
+Persistência:
+
+- `typing_session`: resumo da sessão concluída.
+- `typing_step`: exercício respondido corretamente.
+- `typing_error`: exercício respondido incorretamente.
+
+Status atual: implementado como MVP local-first. A primeira versão cobre hiragana, conteúdo pequeno, modo de cópia guiada, conversão romaji para kana, feedback simples, resumo e persistência local. Katakana, tradução guiada, textos médios, ditado e adaptação por dificuldade ficam para versões posteriores.
+
+### Versão 2.2 - Expansão da Digitação Guiada
+
+Evoluir a base de digitação sem quebrar o MVP local-first.
+
+Adicionar:
+
+- katakana;
+- tradução guiada com respostas previamente revisadas;
+- dicas opcionais de romaji e vocabulário;
+- textos médios divididos em frases;
+- revisão focada nos exercícios com erro;
+- integração leve com dicionário e mapa de dificuldades;
+- filtros por categoria e dificuldade mais granulares;
+- melhores estatísticas de ritmo e correções.
+
+Regras de evolução:
+
+- manter conteúdo local revisado como fonte principal;
+- não converter texto em português para kana;
+- não depender de serviços externos;
+- continuar usando `js/kana-input.js`;
+- adicionar testes para cada novo caso de conversão e normalização.
+
+### Versão 2.3 - Integração Profunda com Mathicx-File
 
 Integrar o app de forma mais profunda ao Mathicx-File, incluindo widgets, launcher, notificações e comunicação de status de estudo.
 
@@ -692,7 +767,7 @@ Você possui 8 caracteres para revisar hoje.
 
 Evoluir o assistente determinístico iniciado na versão 1.7 para uma camada mais completa de planejamento, explicação e acompanhamento. Esta versão não deve substituir o SRS nem as sessões inteligentes; deve orquestrar esses recursos com mais contexto.
 
-Status atual: iniciado em 2.1 com Assistente de Estudo Diário v2. O motor de recomendação agora retorna um contrato versionado com motivo, evidências, ação sugerida, sessão e próximo passo. O dashboard exibe essas informações e o quiz mostra um resumo pós-sessão com orientação para o próximo estudo. A implementação continua local-first, mas preserva IDs estáveis, `schemaVersion` e módulos centralizados para facilitar uma fonte futura como Firebase ou outro banco.
+Status atual: iniciado antes da 2.1 como Assistente de Estudo Diário v2. O motor de recomendação agora retorna um contrato versionado com motivo, evidências, ação sugerida, sessão e próximo passo. O dashboard exibe essas informações e o quiz mostra um resumo pós-sessão com orientação para o próximo estudo. A implementação continua local-first, mas preserva IDs estáveis, `schemaVersion` e módulos centralizados para facilitar uma fonte futura como Firebase ou outro banco.
 
 Adicionar:
 
@@ -762,7 +837,8 @@ O Japanese Study App deve evoluir de um visualizador de hiragana e katakana para
 
 ## Próximos Passos Recomendados
 
-1. Evoluir o Assistente de Estudo Diário para plano semanal, objetivos configuráveis e análise de progresso.
-2. Aprofundar a integração com Mathicx-File por widget, launcher, deep links e notificações úteis.
-3. Expandir Kanji N5 em blocos pequenos, mantendo validação de dados e compatibilidade com backup/importação.
-4. Avaliar Firebase ou outro banco apenas quando houver necessidade real de dicionário remoto, sincronização multi-dispositivo ou atualização dinâmica de palavras.
+1. Expandir a Digitação Guiada com katakana, tradução guiada, dicas e textos médios.
+2. Evoluir o Assistente de Estudo Diário para plano semanal, objetivos configuráveis e análise de progresso.
+3. Aprofundar a integração com Mathicx-File por widget, launcher, deep links e notificações úteis.
+4. Expandir Kanji N5 em blocos pequenos, mantendo validação de dados e compatibilidade com backup/importação.
+5. Avaliar Firebase ou outro banco apenas quando houver necessidade real de dicionário remoto, sincronização multi-dispositivo ou atualização dinâmica de palavras.

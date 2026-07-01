@@ -33,3 +33,39 @@ test('backup validation summarizes valid backups', () => {
   assert.equal(validation.summary.progress, 1);
   assert.equal(validation.summary.srs, 1);
 });
+
+test('backup validation accepts typing session progress records', () => {
+  const validation = JapaneseStorage.validateImportedBackup({
+    format: 'japanese-study-backup',
+    schemaVersion: 1,
+    data: {
+      favorites: [],
+      dictionaryFavorites: [],
+      progress: [
+        {
+          id: 'typing_session_1',
+          type: 'typing_session',
+          charId: 'typing_1',
+          sessionId: 'typing_1',
+          accuracy: 100,
+          kanaTyped: 4,
+          timestamp: 1
+        },
+        {
+          id: 'typing_step_1',
+          type: 'typing_step',
+          charId: 'typing-hira-001',
+          exerciseId: 'typing-hira-001',
+          expected: 'おはよう',
+          answered: 'おはよう',
+          timestamp: 2
+        }
+      ],
+      srs: {},
+      settings: {}
+    }
+  });
+
+  assert.equal(validation.ok, true);
+  assert.equal(validation.summary.progress, 2);
+});

@@ -3,6 +3,7 @@ import { JapaneseSearch } from './search.js';
 import { JapaneseStrokePlayer } from './stroke-player.js';
 import { JapanesePractice } from './practice.js';
 import { JapaneseKanaInput } from './kana-input.js';
+import { JapaneseTypingEvaluator } from './typing-evaluator.js';
 
 export const JapaneseUI = (() => {
   let currentCharacters = [];
@@ -45,6 +46,15 @@ export const JapaneseUI = (() => {
     elements.quizIncludeReviews = document.getElementById('quiz-include-reviews');
     elements.quizCard = document.getElementById('quiz-card');
     elements.quizScore = document.getElementById('quiz-score');
+    elements.typingSection = document.getElementById('typing-section');
+    elements.typingScript = document.getElementById('typing-script');
+    elements.typingSize = document.getElementById('typing-size');
+    elements.typingMode = document.getElementById('typing-mode');
+    elements.typingLimit = document.getElementById('typing-limit');
+    elements.typingStartBtn = document.getElementById('typing-start-btn');
+    elements.typingResetBtn = document.getElementById('typing-reset-btn');
+    elements.typingCard = document.getElementById('typing-card');
+    elements.typingScore = document.getElementById('typing-score');
     elements.studyNowBtn = document.getElementById('study-now-btn');
     elements.diagnosticBtn = document.getElementById('diagnostic-btn');
     elements.dataSection = document.getElementById('data-section');
@@ -79,11 +89,18 @@ export const JapaneseUI = (() => {
     elements.quizSection.addEventListener('click', handleQuizClick);
     elements.quizSection.addEventListener('input', handleQuizInput);
     elements.quizSection.addEventListener('submit', handleQuizSubmit);
+    elements.typingSection.addEventListener('click', handleTypingClick);
+    elements.typingSection.addEventListener('input', handleTypingInput);
+    elements.typingSection.addEventListener('submit', handleTypingSubmit);
     elements.quizMode.addEventListener('change', notifyQuizSettingsChange);
     elements.quizScript.addEventListener('change', notifyQuizSettingsChange);
     elements.quizCategoryFilter.addEventListener('change', notifyQuizSettingsChange);
     elements.quizLimit.addEventListener('change', notifyQuizSettingsChange);
     elements.quizIncludeReviews.addEventListener('change', notifyQuizSettingsChange);
+    elements.typingScript.addEventListener('change', notifyTypingSettingsChange);
+    elements.typingSize.addEventListener('change', notifyTypingSettingsChange);
+    elements.typingMode.addEventListener('change', notifyTypingSettingsChange);
+    elements.typingLimit.addEventListener('change', notifyTypingSettingsChange);
     elements.studyNowBtn.addEventListener('click', () => {
       if (typeof onStudyNow === 'function') onStudyNow();
     });
@@ -126,7 +143,7 @@ export const JapaneseUI = (() => {
   }
 
   function setCurrentView(view) {
-    if (!['characters', 'dictionary', 'quiz', 'data'].includes(view)) return;
+    if (!['characters', 'dictionary', 'quiz', 'typing', 'data'].includes(view)) return;
     currentView = view;
     updateViewTabs();
     updateViewVisibility();
@@ -162,6 +179,24 @@ export const JapaneseUI = (() => {
       });
     }
     ensureKanjiQuizCategory();
+  }
+
+  function getTypingSettings() {
+    return {
+      script: elements.typingScript ? elements.typingScript.value : 'hiragana',
+      size: elements.typingSize ? elements.typingSize.value : 'small',
+      mode: elements.typingMode ? elements.typingMode.value : 'copy',
+      level: 'beginner',
+      category: 'all',
+      limit: elements.typingLimit ? elements.typingLimit.value : '5'
+    };
+  }
+
+  function applyTypingSettings(settings = {}) {
+    if (elements.typingScript && settings.script) elements.typingScript.value = settings.script;
+    if (elements.typingSize && settings.size) elements.typingSize.value = settings.size;
+    if (elements.typingMode && settings.mode) elements.typingMode.value = settings.mode;
+    if (elements.typingLimit && settings.limit) elements.typingLimit.value = String(settings.limit);
   }
 
   function getSelectedQuizCategories() {
@@ -385,9 +420,54 @@ export const JapaneseUI = (() => {
     }
   }
 
+  function handleTypingClick(e) {
+    const actionBtn = e.target.closest('[data-typing-action]');
+    if (actionBtn) {
+      if (actionBtn.dataset.typingAction === 'next' && typeof onTypingNext === 'function') onTypingNext();
+      if (actionBtn.dataset.typingAction === 'reset' && typeof onTypingReset === 'function') onTypingReset();
+      return;
+    }
+
+    if (e.target === elements.typingStartBtn && typeof onTypingStart === 'function') {
+      onTypingStart(getTypingSettings());
+      return;
+    }
+
+    if (e.target === elements.typingResetBtn && typeof onTypingReset === 'function') {
+      onTypingReset();
+    }
+  }
+
+  function handleTypingInput(e) {
+    const input = e.target.closest('[data-typing-input]');
+    if (!input || input.disabled) return;
+
+    const converted = JapaneseKanaInput.convertRomajiToKana(input.value, input.dataset.typingInput);
+    if (converted !== input.value) {
+      input.value = converted;
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    }
+
+    if (typeof onTypingInput === 'function') onTypingInput(input.value);
+  }
+
+  function handleTypingSubmit(e) {
+    if (!e.target.classList.contains('typing-answer-form')) return;
+    e.preventDefault();
+    const input = e.target.querySelector('[name="typing-answer"]');
+    if (!input || input.disabled) return;
+    input.value = JapaneseKanaInput.convertRomajiToKana(input.value, input.dataset.typingInput, { finalizeN: true });
+    if (typeof onTypingSubmit === 'function') onTypingSubmit(input.value);
+  }
+
   function notifyQuizSettingsChange() {
     ensureKanjiQuizCategory();
     if (typeof onQuizSettingsChange === 'function') onQuizSettingsChange(getQuizSettings());
+  }
+
+  function notifyTypingSettingsChange() {
+    if (typeof onTypingSettingsChange === 'function') onTypingSettingsChange(getTypingSettings());
   }
 
   function ensureKanjiQuizCategory() {
@@ -589,6 +669,145 @@ export const JapaneseUI = (() => {
     return '<div class="quiz-feedback ' + cls + '">' + text + '</div>';
   }
 
+  function renderTyping(state = {}) {
+    if (!elements.typingCard) return;
+    updateTypingScore(state.summary);
+
+    if (state.error) {
+      elements.typingCard.innerHTML = '<div class="empty-state"><p>' + escapeHtml(state.error) + '</p></div>';
+      return;
+    }
+
+    if (!state.started) {
+      elements.typingCard.innerHTML =
+        '<div class="typing-empty">' +
+          '<strong>Escolha uma sessao curta para comecar.</strong>' +
+          '<p>O MVP usa conteudo local revisado, escrita em hiragana e copia guiada.</p>' +
+        '</div>';
+      return;
+    }
+
+    if (state.complete) {
+      elements.typingCard.innerHTML = renderTypingSummary(state.summary);
+      return;
+    }
+
+    const exercise = state.exercise;
+    if (!exercise) {
+      elements.typingCard.innerHTML = '<div class="empty-state"><p>Nenhum exercicio disponivel para estes filtros.</p></div>';
+      return;
+    }
+
+    const feedback = state.feedback || JapaneseTypingEvaluator.getLiveFeedback(state.currentValue || '', exercise);
+    const result = state.result ? renderTypingResult(state.result) : renderTypingLiveFeedback(feedback, exercise);
+    elements.typingCard.innerHTML =
+      '<div class="typing-progress-row">' +
+        '<span>Exercicio ' + ((state.summary?.answered || 0) + 1) + ' de ' + (state.summary?.total || 0) + '</span>' +
+        '<span>' + escapeHtml(getTypingCategoryLabel(exercise.category)) + '</span>' +
+      '</div>' +
+      '<div class="typing-reference">' +
+        '<span>Portugues</span>' +
+        '<strong>' + escapeHtml(exercise.promptPt) + '</strong>' +
+      '</div>' +
+      '<div class="typing-reference japanese">' +
+        '<span>Japones esperado</span>' +
+        '<strong>' + escapeHtml(exercise.referenceJapanese) + '</strong>' +
+      '</div>' +
+      '<form class="typing-answer-form">' +
+        '<label for="typing-answer-input">Entrada convertida</label>' +
+        '<input id="typing-answer-input" name="typing-answer" autocomplete="off" data-typing-input="' + escapeHtml(exercise.script) + '" value="' + escapeHtml(state.currentValue || '') + '" placeholder="Digite em romaji...">' +
+        '<button class="typing-primary-btn" type="submit">Verificar</button>' +
+      '</form>' +
+      result +
+      renderTypingNotes(exercise) +
+      '<div class="typing-actions">' +
+        '<button class="typing-secondary-btn" data-typing-action="reset" type="button">Reiniciar</button>' +
+      '</div>';
+
+    const input = elements.typingCard.querySelector('[data-typing-input]');
+    if (input) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  }
+
+  function renderTypingLiveFeedback(feedback, exercise) {
+    if (!feedback || (!feedback.correctPrefixLength && feedback.firstErrorIndex === -1)) {
+      return '<div class="typing-feedback neutral">Digite em romaji. A conversao acontece no proprio campo.</div>';
+    }
+    if (feedback.complete) {
+      return '<div class="typing-feedback correct">A frase esta completa. Pressione Enter para verificar.</div>';
+    }
+    if (feedback.firstErrorIndex >= 0) {
+      const expected = JapaneseTypingEvaluator.normalizeAnswer(exercise.answer)[feedback.firstErrorIndex] || '';
+      return '<div class="typing-feedback wrong">Primeiro ponto para revisar: posicao ' + (feedback.firstErrorIndex + 1) + (expected ? ', esperado "' + escapeHtml(expected) + '".' : '.') + '</div>';
+    }
+    return '<div class="typing-feedback neutral">Prefixo correto ate agora.</div>';
+  }
+
+  function renderTypingResult(result) {
+    if (result.empty) return '<div class="typing-feedback warning">Digite uma resposta antes de verificar.</div>';
+    if (result.correct) return '<div class="typing-feedback correct">Resposta anterior correta.</div>';
+    return '<div class="typing-feedback wrong">Resposta anterior esperada: ' + escapeHtml(result.expected) + '</div>';
+  }
+
+  function renderTypingNotes(exercise) {
+    const tokens = Array.isArray(exercise.tokens) ? exercise.tokens : [];
+    const tokenHtml = tokens.length
+      ? '<div class="typing-tokens">' + tokens.map(token =>
+          '<span><strong>' + escapeHtml(token.surface) + '</strong>' + (token.meaning ? ' ' + escapeHtml(token.meaning) : '') + '</span>'
+        ).join('') + '</div>'
+      : '';
+    return '<div class="typing-note">' + escapeHtml(exercise.notes || 'Conteudo revisado localmente.') + '</div>' + tokenHtml;
+  }
+
+  function renderTypingSummary(summary = {}) {
+    return '<div class="typing-summary">' +
+      '<div class="quiz-complete-title">Sessao concluida</div>' +
+      '<div class="typing-summary-grid">' +
+        renderTypingSummaryMetric('Frases', (summary.correct || 0) + '/' + (summary.total || 0)) +
+        renderTypingSummaryMetric('Precisao', (summary.accuracy || 0) + '%') +
+        renderTypingSummaryMetric('Kana/min', summary.kanaPerMinute || 0) +
+        renderTypingSummaryMetric('Erros', summary.errors || 0) +
+      '</div>' +
+      '<p>Proximo foco: ' + escapeHtml(getTypingNextFocus(summary)) + '</p>' +
+      '<div class="typing-actions">' +
+        '<button class="typing-primary-btn" data-typing-action="reset" type="button">Nova sessao</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderTypingSummaryMetric(label, value) {
+    return '<div class="typing-summary-metric"><span>' + label + '</span><strong>' + value + '</strong></div>';
+  }
+
+  function updateTypingScore(summary = {}) {
+    if (!elements.typingScore) return;
+    if (!summary || !summary.total) {
+      elements.typingScore.textContent = 'Pronto';
+      return;
+    }
+    elements.typingScore.textContent = (summary.answered || 0) + '/' + (summary.total || 0) + ' - ' + (summary.accuracy || 0) + '%';
+  }
+
+  function getTypingNextFocus(summary = {}) {
+    if ((summary.errors || 0) === 0) return 'repita a sessao com mais ritmo antes de aumentar o tamanho.';
+    if ((summary.accuracy || 0) >= 60) return 'repita apenas as palavras que tiveram erro.';
+    return 'volte para frases curtas e confira o primeiro caractere divergente.';
+  }
+
+  function getTypingCategoryLabel(category) {
+    const labels = {
+      greetings: 'cumprimentos',
+      classroom: 'sala de aula',
+      people: 'pessoas',
+      places: 'lugares',
+      objects: 'objetos',
+      phrases: 'frases'
+    };
+    return labels[category] || category || 'geral';
+  }
+
   function updateViewTabs() {
     elements.viewTabs.querySelectorAll('[data-view]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === currentView);
@@ -598,13 +817,15 @@ export const JapaneseUI = (() => {
   function updateViewVisibility() {
     const dictionaryOpen = currentView === 'dictionary';
     const quizOpen = currentView === 'quiz';
+    const typingOpen = currentView === 'typing';
     const dataOpen = currentView === 'data';
     elements.dictionarySection.style.display = dictionaryOpen ? '' : 'none';
     elements.quizSection.style.display = quizOpen ? '' : 'none';
+    elements.typingSection.style.display = typingOpen ? '' : 'none';
     elements.dataSection.style.display = dataOpen ? '' : 'none';
-    elements.filtersBar.style.display = (dictionaryOpen || quizOpen || dataOpen) ? 'none' : '';
-    elements.dashboard.style.display = (dictionaryOpen || quizOpen || dataOpen) ? 'none' : '';
-    elements.grid.style.display = (dictionaryOpen || quizOpen || dataOpen) ? 'none' : '';
+    elements.filtersBar.style.display = (dictionaryOpen || quizOpen || typingOpen || dataOpen) ? 'none' : '';
+    elements.dashboard.style.display = (dictionaryOpen || quizOpen || typingOpen || dataOpen) ? 'none' : '';
+    elements.grid.style.display = (dictionaryOpen || quizOpen || typingOpen || dataOpen) ? 'none' : '';
     elements.searchInput.placeholder = dictionaryOpen
       ? 'Buscar palavra, leitura, romaji ou defini\u00e7\u00e3o...'
       : quizOpen
@@ -722,6 +943,12 @@ export const JapaneseUI = (() => {
   let onQuizNext = null;
   let onQuizReveal = null;
   let onQuizReset = null;
+  let onTypingSettingsChange = null;
+  let onTypingStart = null;
+  let onTypingInput = null;
+  let onTypingSubmit = null;
+  let onTypingNext = null;
+  let onTypingReset = null;
   let onBackupExport = null;
   let onBackupFileSelected = null;
   let onBackupImport = null;
@@ -761,6 +988,30 @@ export const JapaneseUI = (() => {
 
   function onQuizResetCallback(cb) {
     onQuizReset = cb;
+  }
+
+  function onTypingSettingsChangeCallback(cb) {
+    onTypingSettingsChange = cb;
+  }
+
+  function onTypingStartCallback(cb) {
+    onTypingStart = cb;
+  }
+
+  function onTypingInputCallback(cb) {
+    onTypingInput = cb;
+  }
+
+  function onTypingSubmitCallback(cb) {
+    onTypingSubmit = cb;
+  }
+
+  function onTypingNextCallback(cb) {
+    onTypingNext = cb;
+  }
+
+  function onTypingResetCallback(cb) {
+    onTypingReset = cb;
   }
 
   function onBackupExportCallback(cb) {
@@ -1240,6 +1491,7 @@ export const JapaneseUI = (() => {
 
     const stats = data.stats || {};
     const srsStats = data.srsStats || {};
+    const typingStats = data.typingStats || {};
     const completion = data.completion || {};
     const recent = stats.recent || [];
     const activity = stats.activity || {};
@@ -1255,6 +1507,7 @@ export const JapaneseUI = (() => {
       renderMetric('Tempo total', formatStudyTime(stats.studyTime || 0), 'minutos registrados') +
       renderMetric('Revis\u00f5es hoje', srsStats.due || 0, 'pendentes no SRS') +
       renderMetric('Dominados', srsStats.mastered || 0, 'caracteres') +
+      renderMetric('Digitacao', typingStats.sessions || 0, 'sessoes guiadas') +
       renderMetric('Kanji N5', (completion.kanji?.studied || 0) + '/' + (completion.kanji?.total || 0), 'estudados');
 
     elements.dashboardProgress.innerHTML =
@@ -1437,10 +1690,13 @@ export const JapaneseUI = (() => {
     getDictionaryFilters,
     getQuizSettings,
     applyQuizSettings,
+    getTypingSettings,
+    applyTypingSettings,
     setFilters,
     renderGrid,
     renderDictionary,
     renderQuiz,
+    renderTyping,
     renderFilters,
     onFilterChangeCallback,
     onViewChangeCallback,
@@ -1450,6 +1706,12 @@ export const JapaneseUI = (() => {
     onQuizNextCallback,
     onQuizRevealCallback,
     onQuizResetCallback,
+    onTypingSettingsChangeCallback,
+    onTypingStartCallback,
+    onTypingInputCallback,
+    onTypingSubmitCallback,
+    onTypingNextCallback,
+    onTypingResetCallback,
     onBackupExportCallback,
     onBackupFileSelectedCallback,
     onBackupImportCallback,

@@ -203,7 +203,20 @@ export const JapaneseStorage = (() => {
         expected: data.expected,
         answered: data.answered,
         mode: data.mode,
-        review: data.review
+        review: data.review,
+        sessionId: data.sessionId,
+        exerciseId: data.exerciseId,
+        promptPt: data.promptPt,
+        referenceJapanese: data.referenceJapanese,
+        correct: data.correct,
+        accuracy: data.accuracy,
+        durationMs: data.durationMs,
+        kanaTyped: data.kanaTyped,
+        kanaPerMinute: data.kanaPerMinute,
+        errors: data.errors,
+        total: data.total,
+        completed: data.completed,
+        settings: data.settings
       };
       const req = store.put(record);
       req.onsuccess = () => resolve(req.result);
@@ -369,6 +382,65 @@ export const JapaneseStorage = (() => {
       mode: question.mode || question.type,
       review: Boolean(question.review)
     });
+  }
+
+  async function saveTypingSession(summary) {
+    if (!summary || !summary.completed) return null;
+    const sessionId = `typing_${summary.startedAt || Date.now()}`;
+    const sessionRecord = await saveProgress({
+      type: 'typing_session',
+      charId: sessionId,
+      sessionId,
+      value: summary.correct || 0,
+      mode: summary.settings?.mode || 'copy',
+      script: summary.settings?.script || 'hiragana',
+      category: summary.settings?.category,
+      accuracy: summary.accuracy,
+      durationMs: summary.durationMs,
+      kanaTyped: summary.kanaTyped,
+      kanaPerMinute: summary.kanaPerMinute,
+      errors: summary.errors,
+      total: summary.total,
+      completed: summary.completed,
+      settings: summary.settings
+    });
+
+    const steps = Array.isArray(summary.steps) ? summary.steps : [];
+    await Promise.all(steps.map((step, index) => saveProgress({
+      type: step.correct ? 'typing_step' : 'typing_error',
+      charId: step.exerciseId || `${sessionId}_${index}`,
+      sessionId,
+      exerciseId: step.exerciseId,
+      value: step.correct ? 1 : 0,
+      promptPt: step.promptPt,
+      expected: step.expected,
+      answered: step.answered,
+      correct: step.correct,
+      accuracy: step.accuracy,
+      mode: summary.settings?.mode || 'copy',
+      script: summary.settings?.script || 'hiragana',
+      category: summary.settings?.category
+    })));
+
+    return sessionRecord;
+  }
+
+  async function getTypingStats() {
+    const records = await getAllProgress();
+    const sessions = records.filter(record => record.type === 'typing_session');
+    const errors = records.filter(record => record.type === 'typing_error');
+    const totalKanaTyped = sessions.reduce((sum, record) => sum + Number(record.kanaTyped || 0), 0);
+    const averageAccuracy = sessions.length
+      ? Math.round(sessions.reduce((sum, record) => sum + Number(record.accuracy || 0), 0) / sessions.length)
+      : 0;
+
+    return {
+      sessions: sessions.length,
+      errors: errors.length,
+      totalKanaTyped,
+      averageAccuracy,
+      recentErrors: errors.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 10)
+    };
   }
 
   async function getQuizStats() {
@@ -726,6 +798,8 @@ export const JapaneseStorage = (() => {
     getDictionaryHistory,
     saveQuizAnswer,
     getQuizStats,
+    saveTypingSession,
+    getTypingStats,
     getDifficultyMap,
     getLastViewed,
     openDB,

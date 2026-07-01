@@ -28,6 +28,7 @@
       <button class="view-tab active" data-view="characters">Caracteres</button>
       <button class="view-tab" data-view="dictionary">Dicionário</button>
       <button class="view-tab" data-view="quiz">Quiz</button>
+      <button class="view-tab" data-view="typing">DigitaÃ§Ã£o guiada</button>
       <button class="view-tab" data-view="data">Dados</button>
     </nav>
 
@@ -166,6 +167,51 @@
       </div>
 
       <div id="quiz-card" class="quiz-card"></div>
+    </section>
+
+    <section id="typing-section" class="typing-section" style="display:none" aria-label="DigitaÃ§Ã£o guiada em japonÃªs">
+      <div class="typing-header">
+        <div>
+          <h2>DigitaÃ§Ã£o guiada</h2>
+          <p>Digite em romaji, veja hiragana se formar e compare com frases curtas revisadas.</p>
+        </div>
+        <div id="typing-score" class="typing-score">Pronto</div>
+      </div>
+
+      <div class="typing-toolbar">
+        <label>
+          Escrita
+          <select id="typing-script">
+            <option value="hiragana">Hiragana</option>
+          </select>
+        </label>
+        <label>
+          Tamanho
+          <select id="typing-size">
+            <option value="small">Pequeno</option>
+          </select>
+        </label>
+        <label>
+          Modo
+          <select id="typing-mode">
+            <option value="copy">CÃ³pia guiada</option>
+          </select>
+        </label>
+        <label>
+          ExercÃ­cios
+          <select id="typing-limit">
+            <option value="3">3 frases</option>
+            <option value="5" selected>5 frases</option>
+            <option value="8">8 frases</option>
+          </select>
+        </label>
+        <div class="typing-toolbar-actions">
+          <button id="typing-start-btn" class="typing-primary-btn" type="button">Iniciar</button>
+          <button id="typing-reset-btn" class="typing-secondary-btn" type="button">Reiniciar</button>
+        </div>
+      </div>
+
+      <div id="typing-card" class="typing-card"></div>
     </section>
 
     <section id="data-section" class="data-section" style="display:none" aria-label="Backup e dados">
