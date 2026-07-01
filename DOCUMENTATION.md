@@ -50,6 +50,10 @@ Applications/japanese-study/
 │   ├── typing-content-provider.js
 │   ├── typing-evaluator.js
 │   └── typing-session.js
+├── scripts/
+│   └── mojibake-check.mjs
+├── tests/
+│   └── mojibake-check.test.mjs
 ├── data/
 │   ├── hiragana.json
 │   ├── katakana.json
@@ -79,6 +83,8 @@ O projeto é dividido por responsabilidade:
 - `data/katakana.json`: base de caracteres katakana.
 - `data/dictionary.json`: base local inicial de palavras.
 - `data/typing-exercises.json`: base local inicial de exercícios revisados para digitação guiada.
+- `scripts/mojibake-check.mjs`: varredura e correção opcional de mojibakes comuns em arquivos de texto.
+- `tests/mojibake-check.test.mjs`: garante que a verificação de mojibake rode junto da suíte automatizada.
 - `manifest.js`: metadados para integração com o Mathicx-File.
 - `view.js`: adaptador de iframe para montagem dentro do host.
 
@@ -204,7 +210,7 @@ Esta tabela substitui a leitura antiga de conformidade por uma visão centraliza
 ## Riscos e Pontos Técnicos
 
 - Dependência externa: o carregamento de SVGs usa GitHub raw. Sem internet ou com bloqueio de rede, a ordem real dos traços não aparece.
-- Encoding: os arquivos parecem estar em UTF-8, mas alguns terminais podem exibir caracteres japoneses e ícones de forma corrompida se o console não estiver em UTF-8.
+- Encoding: os arquivos devem permanecer em UTF-8. Alguns terminais podem exibir caracteres japoneses e ícones de forma corrompida se o console não estiver em UTF-8; antes de editar manualmente, confirmar com `npm run check:mojibake`.
 - Segurança de HTML: a UI monta alguns trechos com `innerHTML`. Como os dados vêm de JSON local controlado, o risco é baixo, mas isso deve ser revisto se houver importação de dados externos no futuro.
 - Escalabilidade: a grade de caracteres já usa event delegation, mas filtros e controles internos ainda podem ser simplificados no futuro.
 - Backup: o app já guarda dados de estudo importantes no navegador. Antes de aumentar o escopo com kanji, é recomendável exportar e importar progresso, favoritos, histórico, SRS e preferências.
@@ -212,6 +218,26 @@ Esta tabela substitui a leitura antiga de conformidade por uma visão centraliza
 - Validação do host: mensagens recebidas por `postMessage` devem validar origem e formato antes de executar ações internas.
 - Testes automatizados: SRS, fila de erros do quiz, cálculo de streak, filtros combinados, backup/importação e avaliação de escrita são pontos com risco de erro silencioso.
 - Tratamento de falhas: IndexedDB indisponível, backup inválido, JSON corrompido, SVG ausente e falha de comunicação com o host devem gerar mensagens compreensíveis para o usuário.
+
+## Manutenção de Encoding
+
+O projeto possui conteúdo em português e japonês, então qualquer arquivo salvo no encoding errado pode gerar mojibake em áreas visíveis como Quiz, Dicionário e Digitação Guiada.
+
+Comandos disponíveis:
+
+```bash
+npm run check:mojibake
+npm run fix:mojibake
+```
+
+Uso recomendado:
+
+- rodar `npm run check:mojibake` antes de fechar alterações que mexam em textos, JSON, HTML ou documentação;
+- usar `npm run fix:mojibake` somente quando a checagem apontar corrupção real;
+- revisar `git diff` depois da correção automática;
+- manter o teste `tests/mojibake-check.test.mjs` na suíte para impedir que letras acentuadas quebradas, setas corrompidas, marcadores indevidos e controles invisíveis passem despercebidos.
+
+Observação: o PowerShell pode renderizar UTF-8 como mojibake mesmo quando o arquivo está correto. A fonte de verdade para manutenção deve ser a leitura em UTF-8 pelo Node e a checagem automatizada.
 
 ## Diretrizes de Arquitetura
 

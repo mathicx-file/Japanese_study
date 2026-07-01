@@ -35,16 +35,26 @@ export const JapaneseTypingContentProvider = (() => {
     );
   }
 
-  function buildSession(filters = {}) {
+  function buildSession(filters = {}, options = {}) {
     const settings = { ...DEFAULT_FILTERS, ...filters };
     const limit = getLimit(settings.limit);
     const pool = filterExercises(settings);
+    const random = typeof options.random === 'function' ? options.random : Math.random;
 
     return {
       settings: { ...settings, limit },
-      exercises: pool.slice(0, limit),
+      exercises: shuffle(pool, random).slice(0, limit),
       available: pool.length
     };
+  }
+
+  function shuffle(list, random = Math.random) {
+    const result = [...list];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(random() * (index + 1));
+      [result[index], result[target]] = [result[target], result[index]];
+    }
+    return result;
   }
 
   function normalizeExercise(exercise) {
@@ -86,6 +96,7 @@ export const JapaneseTypingContentProvider = (() => {
     getAll,
     getCategories,
     filterExercises,
-    buildSession
+    buildSession,
+    shuffle
   };
 })();

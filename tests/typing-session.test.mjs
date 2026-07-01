@@ -60,7 +60,22 @@ test('typing content provider filters local exercises and applies limit', () => 
 
   assert.equal(session.available, 2);
   assert.equal(session.exercises.length, 2);
-  assert.equal(session.exercises[0].id, 'small-1');
+  assert.deepEqual(new Set(session.exercises.map(exercise => exercise.id)), new Set(['small-1', 'small-2']));
+});
+
+test('typing content provider shuffles exercises for each session', () => {
+  JapaneseTypingContentProvider.setData(fixtures);
+  const session = JapaneseTypingContentProvider.buildSession({
+    script: 'hiragana',
+    size: 'small',
+    mode: 'copy',
+    category: 'all',
+    limit: 3
+  }, {
+    random: () => 0
+  });
+
+  assert.deepEqual(session.exercises.map(exercise => exercise.id), ['small-2', 'small-1']);
 });
 
 test('typing evaluator normalizes punctuation and finds first error', () => {

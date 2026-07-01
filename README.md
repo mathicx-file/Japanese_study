@@ -119,6 +119,7 @@ A suite atual cobre:
 - SRS e normalizacao de registros.
 - Conversao romaji para kana.
 - Digitacao guiada, avaliacao de respostas e persistencia de sessoes.
+- Varredura contra mojibakes conhecidos nos arquivos-fonte.
 - Quiz, fila de revisao de erros e modos de Kanji N5.
 - Busca de kanji por significado, leitura, radical, tag e vocabulario.
 - Validacao de backup e limpeza de dados locais.
@@ -129,8 +130,31 @@ A suite atual cobre:
 | --- | --- |
 | `npm test` | Roda a suite com `node --test`. |
 | `npm.cmd test` | Alternativa para PowerShell no Windows. |
+| `npm run check:mojibake` | Verifica se arquivos-fonte contem padroes conhecidos de mojibake. |
+| `npm run fix:mojibake` | Tenta corrigir mojibakes UTF-8 interpretados como Windows-1252/Latin-1. Revise o diff depois. |
+| `node scripts/mojibake-check.mjs` | Executa diretamente a mesma verificacao de encoding. |
+| `node scripts/mojibake-check.mjs --fix` | Executa diretamente a correcao automatica de mojibake. |
 | `python -m http.server 8080` | Sobe servidor estatico local. |
 | `npx http-server . -p 8080` | Alternativa de servidor estatico via Node. |
+
+### Checagem de mojibake
+
+O script `scripts/mojibake-check.mjs` protege arquivos de texto contra corrupcoes comuns de UTF-8 exibidas como letras acentuadas quebradas, setas corrompidas, controles invisiveis e sequencias semelhantes. Ele e executado pela suite de testes por meio de `tests/mojibake-check.test.mjs`, entao um texto corrompido deve quebrar `npm test` antes de chegar ao uso normal.
+
+Use a checagem sem alterar arquivos:
+
+```bash
+npm run check:mojibake
+```
+
+Se houver corrupcao real em arquivos-fonte, aplique a correcao automatica e revise o diff:
+
+```bash
+npm run fix:mojibake
+git diff
+```
+
+Observacao para Windows: o PowerShell pode exibir UTF-8 corretamente salvo como mojibake quando o console nao esta em UTF-8. Antes de editar manualmente, prefira confirmar com `npm run check:mojibake` ou com leitura via Node.
 
 ## Arquitetura
 

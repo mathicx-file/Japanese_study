@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "check:mojibake": "node scripts/mojibake-check.mjs",
+    "fix:mojibake": "node scripts/mojibake-check.mjs --fix"
   }
 }
