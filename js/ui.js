@@ -8,9 +8,10 @@ import { JapaneseTypingEvaluator } from './typing-evaluator.js';
 export const JapaneseUI = (() => {
   let currentCharacters = [];
   let currentFilters = { script: 'hiragana', category: '', onlyFavorites: false, dueReview: false };
-  let currentView = 'characters';
+  let currentView = 'home';
   let dictionaryFilters = { tab: 'all', script: 'all' };
   let currentDictionaryWords = [];
+  let expandedDictionaryId = '';
   let currentIndex = 0;
   let modalOpen = false;
   let currentStrokeModel = null;
@@ -19,8 +20,10 @@ export const JapaneseUI = (() => {
 
   function init() {
     elements.searchInput = document.getElementById('search-input');
+    elements.dictionarySearchInput = document.getElementById('dictionary-search-input');
     elements.filtersBar = document.getElementById('filters-bar');
     elements.grid = document.getElementById('character-grid');
+    elements.charactersSection = document.getElementById('characters-section');
     elements.modal = document.getElementById('study-modal');
     elements.modalContent = elements.modal.querySelector('.modal-content');
     elements.strokeArea = document.getElementById('stroke-player-area');
@@ -143,7 +146,7 @@ export const JapaneseUI = (() => {
   }
 
   function setCurrentView(view) {
-    if (!['characters', 'dictionary', 'quiz', 'typing', 'data'].includes(view)) return;
+    if (!['home', 'characters', 'dictionary', 'quiz', 'typing', 'data'].includes(view)) return;
     currentView = view;
     updateViewTabs();
     updateViewVisibility();
@@ -255,28 +258,58 @@ export const JapaneseUI = (() => {
       return;
     }
 
-    grid.innerHTML = '';
+    grid.innerHTML =
+      '<div class="dictionary-table-head" aria-hidden="true">' +
+        '<span>Japon\u00eas</span>' +
+        '<span>Leitura</span>' +
+        '<span>Romaji</span>' +
+        '<span>Descri\u00e7\u00e3o</span>' +
+        '<span>Tags</span>' +
+        '<span>A\u00e7\u00f5es</span>' +
+      '</div>';
     const frag = document.createDocumentFragment();
 
     currentDictionaryWords.forEach((word, index) => {
       const isFav = JapaneseStorage.isDictionaryFavorite(word.id);
-      const card = document.createElement('article');
-      card.className = 'dictionary-card';
-      card.dataset.index = index;
-      card.dataset.id = word.id;
-      card.innerHTML =
-        '<button class="dictionary-favorite ' + (isFav ? 'active' : '') + '" data-id="' + word.id + '" title="Favoritar palavra">' + (isFav ? '\u2605' : '\u2606') + '</button>' +
-        '<div class="dictionary-word">' + word.word + '</div>' +
-        '<div class="dictionary-romaji">' + (word.reading ? word.reading + ' · ' : '') + word.romaji + '</div>' +
-        '<p class="dictionary-definition">' + word.definition + '</p>' +
-        '<div class="dictionary-meta">' +
-          '<span>' + getScriptLabel(word.script) + '</span>' +
-          '<span>' + (word.category || 'geral') + '</span>' +
-        '</div>';
-      frag.appendChild(card);
+      const isExpanded = expandedDictionaryId === word.id;
+      const row = document.createElement('article');
+      row.className = 'dictionary-row' + (isExpanded ? ' expanded viewed' : '');
+      row.dataset.index = index;
+      row.dataset.id = word.id;
+      row.innerHTML = renderDictionaryRow(word, isFav, isExpanded);
+      frag.appendChild(row);
     });
 
     grid.appendChild(frag);
+  }
+
+  function renderDictionaryRow(word, isFav, isExpanded) {
+    return (
+      '<button class="dictionary-main" type="button" aria-expanded="' + isExpanded + '">' +
+        '<span class="dictionary-word">' + escapeHtml(word.word) + '</span>' +
+        '<span class="dictionary-reading">' + escapeHtml(word.reading || '-') + '</span>' +
+        '<span class="dictionary-romaji">' + escapeHtml(word.romaji || '-') + '</span>' +
+        '<span class="dictionary-definition">' + escapeHtml(word.definition || '-') + '</span>' +
+        '<span class="dictionary-meta">' +
+          '<span>' + escapeHtml(getScriptLabel(word.script)) + '</span>' +
+          '<span>' + escapeHtml(word.category || 'geral') + '</span>' +
+        '</span>' +
+        '<span class="dictionary-actions"><span class="dictionary-expand-indicator">' + (isExpanded ? 'Fechar' : 'Detalhes') + '</span></span>' +
+      '</button>' +
+      '<button class="dictionary-favorite ' + (isFav ? 'active' : '') + '" data-id="' + escapeHtml(word.id) + '" title="Favoritar palavra" aria-label="Favoritar palavra">' + (isFav ? '\u2605' : '\u2606') + '</button>' +
+      (isExpanded ? renderDictionaryDetail(word) : '')
+    );
+  }
+
+  function renderDictionaryDetail(word) {
+    return (
+      '<div class="dictionary-detail">' +
+        '<div><span>Definicao</span><strong>' + escapeHtml(word.definition || '-') + '</strong></div>' +
+        '<div><span>Escrita</span><strong>' + escapeHtml(getScriptLabel(word.script)) + '</strong></div>' +
+        '<div><span>Categoria</span><strong>' + escapeHtml(word.category || 'geral') + '</strong></div>' +
+        '<div><span>Fonte</span><strong>Base local</strong></div>' +
+      '</div>'
+    );
   }
 
   function handleGridClick(e) {
@@ -330,18 +363,21 @@ export const JapaneseUI = (() => {
       return;
     }
 
-    const card = e.target.closest('.dictionary-card');
-    if (!card || !elements.dictionaryGrid.contains(card)) return;
+    const row = e.target.closest('.dictionary-row');
+    if (!row || !elements.dictionaryGrid.contains(row)) return;
 
-    const index = Number(card.dataset.index);
+    const index = Number(row.dataset.index);
     const word = currentDictionaryWords[index];
     if (!word) return;
 
-    JapaneseStorage.markDictionaryViewed(word).then(() => {
-      JapaneseStorage.emitChange('dictionary-history-updated', { wordId: word.id });
-    }).catch(() => {});
+    expandedDictionaryId = expandedDictionaryId === word.id ? '' : word.id;
+    renderDictionary(currentDictionaryWords);
 
-    card.classList.add('viewed');
+    if (expandedDictionaryId === word.id) {
+      JapaneseStorage.markDictionaryViewed(word).then(() => {
+        JapaneseStorage.emitChange('dictionary-history-updated', { wordId: word.id });
+      }).catch(() => {});
+    }
   }
 
   function handleAdaptiveDashboardClick(e) {
@@ -815,24 +851,18 @@ export const JapaneseUI = (() => {
   }
 
   function updateViewVisibility() {
+    const homeOpen = currentView === 'home';
+    const charactersOpen = currentView === 'characters';
     const dictionaryOpen = currentView === 'dictionary';
     const quizOpen = currentView === 'quiz';
     const typingOpen = currentView === 'typing';
     const dataOpen = currentView === 'data';
+    elements.dashboard.style.display = homeOpen ? '' : 'none';
+    elements.charactersSection.style.display = charactersOpen ? '' : 'none';
     elements.dictionarySection.style.display = dictionaryOpen ? '' : 'none';
     elements.quizSection.style.display = quizOpen ? '' : 'none';
     elements.typingSection.style.display = typingOpen ? '' : 'none';
     elements.dataSection.style.display = dataOpen ? '' : 'none';
-    elements.filtersBar.style.display = (dictionaryOpen || quizOpen || typingOpen || dataOpen) ? 'none' : '';
-    elements.dashboard.style.display = (dictionaryOpen || quizOpen || typingOpen || dataOpen) ? 'none' : '';
-    elements.grid.style.display = (dictionaryOpen || quizOpen || typingOpen || dataOpen) ? 'none' : '';
-    elements.searchInput.placeholder = dictionaryOpen
-      ? 'Buscar palavra, leitura, romaji ou defini\u00e7\u00e3o...'
-      : quizOpen
-        ? 'O quiz usa os filtros pr\u00f3prios abaixo...'
-        : dataOpen
-          ? 'Backup não usa busca...'
-          : 'Buscar por romaji, kana, kanji, leitura ou significado...';
   }
 
   function updateDictionaryControls() {

@@ -206,7 +206,7 @@ const JapaneseApp = (() => {
       renderTyping();
       return;
     }
-    if (JapaneseUI.getCurrentView() === 'data') return;
+    if (JapaneseUI.getCurrentView() === 'data' || JapaneseUI.getCurrentView() === 'home') return;
 
     const query = document.getElementById('search-input').value;
     const filters = JapaneseUI.getFilters();
@@ -216,18 +216,22 @@ const JapaneseApp = (() => {
 
   function setupSearch() {
     const input = document.getElementById('search-input');
-    input.addEventListener('input', () => {
-      if (JapaneseUI.getCurrentView() === 'dictionary') {
+    const dictionaryInput = document.getElementById('dictionary-search-input');
+
+    if (input) {
+      input.addEventListener('input', () => {
+        if (JapaneseUI.getCurrentView() !== 'characters') return;
+        const filters = JapaneseUI.getFilters();
+        JapaneseSearch.debouncedSearch(input.value, filters);
+      });
+    }
+
+    if (dictionaryInput) {
+      dictionaryInput.addEventListener('input', () => {
         clearTimeout(dictionarySearchTimer);
         dictionarySearchTimer = setTimeout(renderDictionary, 150);
-        return;
-      }
-      if (JapaneseUI.getCurrentView() === 'quiz') return;
-      if (JapaneseUI.getCurrentView() === 'typing') return;
-
-      const filters = JapaneseUI.getFilters();
-      JapaneseSearch.debouncedSearch(input.value, filters);
-    });
+      });
+    }
   }
 
   function setupHostListener() {
@@ -397,7 +401,8 @@ const JapaneseApp = (() => {
   }
 
   async function renderDictionary() {
-    const query = document.getElementById('search-input').value;
+    const dictionaryInput = document.getElementById('dictionary-search-input');
+    const query = dictionaryInput ? dictionaryInput.value : '';
     const filters = JapaneseUI.getDictionaryFilters();
     let results = [];
 

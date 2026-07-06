@@ -10,38 +10,33 @@
 </head>
 <body>
   <header class="app-header">
-    <h1>Japanese Study</h1>
-    <div class="search-container">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="search-input" placeholder="Buscar por romaji, kana, kanji, leitura ou significado..." autocomplete="off">
+    <div class="app-header-inner">
+      <h1>Japanese Study</h1>
+      <nav class="view-tabs" aria-label="Secoes do app">
+        <button class="view-tab active" data-view="home">In&iacute;cio</button>
+        <button class="view-tab" data-view="characters">Caracteres</button>
+        <button class="view-tab" data-view="dictionary">Dicion&aacute;rio</button>
+        <button class="view-tab" data-view="quiz">Quiz</button>
+        <button class="view-tab" data-view="typing">Digita&ccedil;&atilde;o guiada</button>
+        <button class="view-tab" data-view="data">Configura&ccedil;&otilde;es</button>
+      </nav>
     </div>
   </header>
 
-  <div id="stats-bar" class="stats-bar">
-    <div class="stat-item">📚 Carregando...</div>
-  </div>
-
-  <nav id="filters-bar" class="filters-bar"></nav>
-
   <main class="main-content">
-    <nav class="view-tabs" aria-label="Seções do app">
-      <button class="view-tab active" data-view="characters">Caracteres</button>
-      <button class="view-tab" data-view="dictionary">Dicionário</button>
-      <button class="view-tab" data-view="quiz">Quiz</button>
-      <button class="view-tab" data-view="typing">Digitação guiada</button>
-      <button class="view-tab" data-view="data">Dados</button>
-    </nav>
-
     <section id="learning-dashboard" class="learning-dashboard" aria-label="Dashboard de aprendizado">
       <div class="dashboard-header">
         <div>
-          <h2>Dashboard de aprendizado</h2>
+          <h2>In&iacute;cio</h2>
           <p>Acompanhe seu progresso em hiragana, katakana e kanji N5.</p>
         </div>
         <div class="dashboard-actions">
           <button id="study-now-btn" class="dashboard-primary-btn" type="button">Estudar agora</button>
           <button id="diagnostic-btn" class="dashboard-secondary-btn" type="button">Fazer diagnóstico</button>
         </div>
+      </div>
+      <div id="stats-bar" class="stats-bar">
+        <div class="stat-item">Carregando...</div>
       </div>
       <div id="dashboard-metrics" class="dashboard-metrics"></div>
       <div id="adaptive-dashboard" class="adaptive-dashboard"></div>
@@ -61,11 +56,27 @@
       </div>
     </section>
 
-    <div id="loading-state" class="loading-state">
-      <div class="spinner"></div>
-      <p>Carregando caracteres...</p>
-    </div>
-    <div id="character-grid" class="character-grid" style="display:none"></div>
+    <section id="characters-section" class="characters-section" style="display:none" aria-label="Caracteres japoneses">
+      <div class="section-header">
+        <div>
+          <h2>Caracteres</h2>
+          <p>Busque e estude hiragana, katakana e kanji N5.</p>
+        </div>
+      </div>
+      <div class="section-tools">
+        <div class="search-container">
+          <span class="search-icon">Buscar</span>
+          <input type="text" id="search-input" placeholder="Buscar por romaji, kana, kanji, leitura ou significado..." autocomplete="off">
+        </div>
+        <nav id="filters-bar" class="filters-bar" aria-label="Filtros de caracteres"></nav>
+      </div>
+
+      <div id="loading-state" class="loading-state">
+        <div class="spinner"></div>
+        <p>Carregando caracteres...</p>
+      </div>
+      <div id="character-grid" class="character-grid" style="display:none"></div>
+    </section>
 
     <section id="dictionary-section" class="dictionary-section" style="display:none" aria-label="Dicionário japonês">
       <div class="dictionary-header">
@@ -74,6 +85,13 @@
           <p>Palavras em kana e kanji com leitura, romaji e definição.</p>
         </div>
         <div id="dictionary-count" class="dictionary-count">0 palavras</div>
+      </div>
+
+      <div class="section-tools">
+        <div class="search-container">
+          <span class="search-icon">Buscar</span>
+          <input type="text" id="dictionary-search-input" placeholder="Buscar palavra, leitura, romaji ou definicao..." autocomplete="off">
+        </div>
       </div>
 
       <div class="dictionary-toolbar">
@@ -90,7 +108,7 @@
         </div>
       </div>
 
-      <div id="dictionary-grid" class="dictionary-grid"></div>
+      <div id="dictionary-grid" class="dictionary-table"></div>
     </section>
 
     <section id="quiz-section" class="quiz-section" style="display:none" aria-label="Quiz de japonês">
@@ -214,10 +232,10 @@
       <div id="typing-card" class="typing-card"></div>
     </section>
 
-    <section id="data-section" class="data-section" style="display:none" aria-label="Backup e dados">
+    <section id="data-section" class="data-section" style="display:none" aria-label="Configuracoes e backup">
       <div class="data-header">
         <div>
-          <h2>Dados e backup</h2>
+          <h2>Configuracoes e backup</h2>
           <p>Proteja favoritos, histórico, SRS, dicionário e preferências em um arquivo local.</p>
         </div>
       </div>
