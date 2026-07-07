@@ -147,6 +147,8 @@ export const JapaneseUI = (() => {
     elements.clearDataBtn.addEventListener('click', () => {
       if (typeof onClearData === 'function') onClearData();
     });
+
+    installKanaExportDebugTools();
   }
 
   function setCharacters(chars) {
@@ -435,6 +437,20 @@ export const JapaneseUI = (() => {
         type: 'practice',
         blankOnly: true
       });
+      return;
+    }
+
+    const expandBtn = e.target.closest('[data-kana-export-expand]');
+    if (expandBtn) {
+      toggleKanaExportGroupExpanded(expandBtn);
+      return;
+    }
+
+    const groupHeader = e.target.closest('.kana-export-group-header');
+    if (groupHeader && !e.target.closest('input')) {
+      const group = groupHeader.closest('.kana-export-group');
+      const groupExpandBtn = group ? group.querySelector('[data-kana-export-expand]') : null;
+      if (groupExpandBtn) toggleKanaExportGroupExpanded(groupExpandBtn);
     }
   }
 
@@ -492,17 +508,19 @@ export const JapaneseUI = (() => {
         '</label>';
       }).join('');
 
-      return '<details class="kana-export-group" ' + (checked ? 'open' : '') + '>' +
-        '<summary>' +
+      return '<article class="kana-export-group">' +
+        '<div class="kana-export-group-header">' +
           '<label class="kana-export-group-toggle">' +
             '<input type="checkbox" data-kana-export-group="' + escapeHtml(group.key) + '" checked>' +
             '<strong>' + escapeHtml(group.label) + '</strong>' +
             '<span>' + group.items.length + ' caracteres</span>' +
           '</label>' +
-        '</summary>' +
-        '<div class="kana-export-group-items">' + choices + '</div>' +
-      '</details>';
+          '<button class="kana-export-group-expand" type="button" data-kana-export-expand aria-expanded="false" aria-label="Expandir grupo">+</button>' +
+        '</div>' +
+        '<div class="kana-export-group-items" hidden>' + choices + '</div>' +
+      '</article>';
     }).join('');
+    initializeKanaExportGroups();
     updateKanaExportGroupStates();
     updateKanaExportSummary();
   }
@@ -518,10 +536,40 @@ export const JapaneseUI = (() => {
   function setKanaExportGroupState(groupInput) {
     const group = groupInput.closest('.kana-export-group');
     if (!group) return;
-    group.open = groupInput.checked;
     group.querySelectorAll('[data-kana-export-character]').forEach(input => {
       input.checked = groupInput.checked;
     });
+  }
+
+  function toggleKanaExportGroupExpanded(expandBtn) {
+    const group = expandBtn.closest('.kana-export-group');
+    if (!group) return;
+    const expanded = !group.classList.contains('expanded');
+    setKanaExportGroupExpanded(group, expanded);
+    logKanaExportDebug('toggle-group', getKanaExportGroupDebugInfo(group));
+  }
+
+  function initializeKanaExportGroups() {
+    if (!elements.kanaExportCharacterList) return;
+    elements.kanaExportCharacterList.querySelectorAll('.kana-export-group').forEach(group => {
+      setKanaExportGroupExpanded(group, false);
+    });
+  }
+
+  function setKanaExportGroupExpanded(group, expanded) {
+    const expandBtn = group.querySelector('[data-kana-export-expand]');
+    const items = group.querySelector('.kana-export-group-items');
+
+    group.classList.toggle('expanded', expanded);
+    if (expandBtn) {
+      expandBtn.setAttribute('aria-expanded', String(expanded));
+      expandBtn.setAttribute('aria-label', expanded ? 'Recolher grupo' : 'Expandir grupo');
+      expandBtn.textContent = expanded ? '-' : '+';
+    }
+    if (items) {
+      items.hidden = !expanded;
+      items.style.display = expanded ? 'grid' : 'none';
+    }
   }
 
   function updateKanaExportGroupStates() {
@@ -556,6 +604,78 @@ export const JapaneseUI = (() => {
 
   function getKanaExportMode() {
     return elements.kanaExportPanel?.dataset.mode || 'reference';
+  }
+
+  function getKanaExportGroupDebugInfo(group) {
+    if (!group) return null;
+    const items = group.querySelector('.kana-export-group-items');
+    const expandBtn = group.querySelector('[data-kana-export-expand]');
+    const choices = Array.from(group.querySelectorAll('.kana-export-choice'));
+    const styles = items ? getComputedStyle(items) : null;
+
+    return {
+      className: group.className,
+      header: group.querySelector('.kana-export-group-header')?.innerText || '',
+      expandedClass: group.classList.contains('expanded'),
+      buttonText: expandBtn?.textContent || '',
+      ariaExpanded: expandBtn?.getAttribute('aria-expanded') || '',
+      itemsHidden: items ? items.hidden : null,
+      inlineDisplay: items ? items.style.display : '',
+      computedDisplay: styles ? styles.display : '',
+      childCount: items ? items.children.length : 0,
+      visibleChoices: choices.filter(choice => choice.offsetParent !== null).length,
+      sampleChoices: choices.slice(0, 8).map(choice => choice.innerText.replace(/\s+/g, ' ').trim())
+    };
+  }
+
+  function logKanaExportDebug(action, details) {
+    if (typeof localStorage === 'undefined' || localStorage.getItem('kanaExportDebug') !== '1') return;
+    console.info('[Japanese Study] Kana export UI debug:', action, details);
+  }
+
+  function installKanaExportDebugTools() {
+    if (typeof window === 'undefined') return;
+    window.JapaneseKanaExportUIDebug = {
+      version: 'kana-export-ui-debug-2026-07-07',
+      inspect() {
+        const groups = Array.from(document.querySelectorAll('.kana-export-group'));
+        const result = groups.map(getKanaExportGroupDebugInfo);
+        console.table(result.map((group, index) => ({
+          index,
+          header: group.header.replace(/\n/g, ' | '),
+          expanded: group.expandedClass,
+          hidden: group.itemsHidden,
+          inlineDisplay: group.inlineDisplay,
+          computedDisplay: group.computedDisplay,
+          childCount: group.childCount,
+          visibleChoices: group.visibleChoices
+        })));
+        return result;
+      },
+      toggle(index = 0) {
+        const group = document.querySelectorAll('.kana-export-group')[index];
+        const button = group ? group.querySelector('[data-kana-export-expand]') : null;
+        if (!button) return null;
+        toggleKanaExportGroupExpanded(button);
+        return getKanaExportGroupDebugInfo(group);
+      },
+      expand(index = 0) {
+        const group = document.querySelectorAll('.kana-export-group')[index];
+        if (!group) return null;
+        setKanaExportGroupExpanded(group, true);
+        return getKanaExportGroupDebugInfo(group);
+      },
+      collapse(index = 0) {
+        const group = document.querySelectorAll('.kana-export-group')[index];
+        if (!group) return null;
+        setKanaExportGroupExpanded(group, false);
+        return getKanaExportGroupDebugInfo(group);
+      },
+      expandAll() {
+        document.querySelectorAll('.kana-export-group').forEach(group => setKanaExportGroupExpanded(group, true));
+        return this.inspect();
+      }
+    };
   }
 
   function getKanaExportCategories() {

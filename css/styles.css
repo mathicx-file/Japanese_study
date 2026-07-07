@@ -377,8 +377,8 @@ body {
 }
 
 .kana-export-character-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 0.45rem;
   max-height: 320px;
   overflow: auto;
@@ -392,30 +392,18 @@ body {
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   overflow: hidden;
+  flex: 0 0 auto;
+  width: 100%;
 }
 
-.kana-export-group summary {
-  display: flex;
+.kana-export-group-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
   min-height: 46px;
+  gap: 0.45rem;
   padding: 0.45rem 0.55rem;
   cursor: pointer;
-  list-style: none;
-}
-
-.kana-export-group summary::-webkit-details-marker {
-  display: none;
-}
-
-.kana-export-group summary::after {
-  content: '+';
-  margin-left: auto;
-  color: var(--text-secondary);
-  font-weight: 700;
-}
-
-.kana-export-group[open] summary::after {
-  content: '-';
 }
 
 .kana-export-group-toggle {
@@ -438,12 +426,38 @@ body {
   font-size: 0.72rem;
 }
 
+.kana-export-group-expand {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.kana-export-group-expand:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .kana-export-group-items {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
   gap: 0.4rem;
   padding: 0.5rem;
   border-top: 1px solid var(--border-color);
+}
+
+.kana-export-group:not(.expanded) .kana-export-group-items {
+  display: none;
+}
+
+.kana-export-group-items[hidden] {
+  display: none;
 }
 
 .kana-export-choice {
