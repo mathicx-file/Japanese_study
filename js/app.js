@@ -289,7 +289,13 @@ const JapaneseApp = (() => {
           JapaneseUI.updateCardFavoriteState(data.charId);
         }
         loadStats();
-      } else if (type === 'progress-updated' || type === 'study-time-updated' || type === 'quiz-updated' || type === 'typing-updated') {
+      } else if (
+        type === 'progress-updated' ||
+        type === 'study-time-updated' ||
+        type === 'quiz-updated' ||
+        type === 'typing-updated' ||
+        type === 'gamification-updated'
+      ) {
         loadStats();
       } else if (type === 'srs-updated') {
         if (JapaneseUI.getFilters().dueReview) applyFilters();
@@ -613,6 +619,9 @@ const JapaneseApp = (() => {
         studiedIds: stats.studiedIds || [],
         diagnostic: settings.diagnostic || {}
       };
+      const gamificationStats = await JapaneseStorage.getGamificationStats(context);
+      context.gamificationStats = gamificationStats;
+      context.gamificationEvents = gamificationStats.events;
       const level = JapaneseLearningLevels.calculate(context);
       const recommendation = JapaneseRecommendationEngine.recommend(context);
       JapaneseUI.updateStats({
@@ -625,6 +634,7 @@ const JapaneseApp = (() => {
         srsStats,
         quizStats,
         typingStats,
+        gamificationStats,
         completion,
         favorites: favs.length,
         level,
@@ -644,6 +654,7 @@ const JapaneseApp = (() => {
         stats: {},
         srsStats: JapaneseStorage.getSrsStats(allData),
         typingStats: { sessions: 0, errors: 0, totalKanaTyped: 0, averageAccuracy: 0, recentErrors: [] },
+        gamificationStats: JapaneseLearningLevels.calculate({}),
         completion: getCompletion([]),
         favorites: JapaneseStorage.getFavorites().length,
         level: JapaneseLearningLevels.calculate({}),
@@ -664,7 +675,7 @@ const JapaneseApp = (() => {
     const difficulty = await JapaneseStorage.getDifficultyMap(8);
     const completion = getCompletion(stats.studiedIds || []);
     const settings = JapaneseStorage.getSettings();
-    return {
+    const context = {
       characters: allData,
       stats,
       srsStats,
@@ -674,6 +685,12 @@ const JapaneseApp = (() => {
       difficulty,
       studiedIds: stats.studiedIds || [],
       diagnostic: settings.diagnostic || {}
+    };
+    const gamificationStats = await JapaneseStorage.getGamificationStats(context);
+    return {
+      ...context,
+      gamificationStats,
+      gamificationEvents: gamificationStats.events
     };
   }
 

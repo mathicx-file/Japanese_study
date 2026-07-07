@@ -1922,14 +1922,15 @@ export const JapaneseUI = (() => {
     const syllabus = data.syllabus || [];
     const guidedTrails = data.guidedTrails || [];
     const quickSessions = data.quickSessions || [];
+    const gamificationStats = data.gamificationStats || level;
 
     elements.dashboardMetrics.innerHTML =
+      renderMetric('XP total', level.xp || 0, 'nivel ' + (level.level || 1)) +
       renderMetric('Estudados', stats.totalStudied || 0, 'caracteres unicos') +
       renderMetric('Tempo total', formatStudyTime(stats.studyTime || 0), 'minutos registrados') +
       renderMetric('Revis\u00f5es hoje', srsStats.due || 0, 'pendentes no SRS') +
       renderMetric('Dominados', srsStats.mastered || 0, 'caracteres') +
-      renderMetric('Digitacao', typingStats.sessions || 0, 'sessoes guiadas') +
-      renderMetric('Kanji N5', (completion.kanji?.studied || 0) + '/' + (completion.kanji?.total || 0), 'estudados');
+      renderMetric('Digitacao', typingStats.sessions || 0, 'sessoes guiadas');
 
     elements.dashboardProgress.innerHTML =
       renderProgressRow('Hiragana', completion.hiragana || {}) +
@@ -1938,10 +1939,11 @@ export const JapaneseUI = (() => {
 
     elements.activityCalendar.innerHTML = renderActivityCalendar(activity);
     elements.recentCharacters.innerHTML = renderRecentCharacters(recent);
-    elements.adaptiveDashboard.innerHTML = renderAdaptiveDashboard(level, recommendation, difficulty, syllabus, guidedTrails, quickSessions);
+    elements.adaptiveDashboard.innerHTML = renderAdaptiveDashboard(level, recommendation, difficulty, syllabus, guidedTrails, quickSessions, gamificationStats);
   }
 
-  function renderAdaptiveDashboard(level, recommendation, difficulty, syllabus, guidedTrails, quickSessions) {
+  function renderAdaptiveDashboard(level, recommendation, difficulty, syllabus, guidedTrails, quickSessions, gamificationStats = {}) {
+    const dimensions = gamificationStats.dimensions || level.dimensions || {};
     return (
       '<section class="adaptive-card assistant-card">' +
         '<div class="adaptive-label">Assistente diario</div>' +
@@ -1954,8 +1956,18 @@ export const JapaneseUI = (() => {
       '<section class="adaptive-card level-card">' +
         '<div class="adaptive-label">Nível atual</div>' +
         '<h3>Nível ' + (level.level || 1) + ' — ' + (level.title || 'Aprendiz de Kana') + '</h3>' +
+        '<div class="level-xp">' + (level.xp || 0) + ' XP' + (level.next ? ' / proximo: ' + level.next.minXp + ' XP' : '') + '</div>' +
         '<div class="progress-track"><div class="progress-fill" style="width:' + (level.progress || 0) + '%"></div></div>' +
+        renderLevelBreakdown(dimensions) +
         '<p>' + (level.hint || 'Comece pelo Gojuuon de hiragana.') + '</p>' +
+      '</section>' +
+      '<section class="adaptive-card quest-card">' +
+        '<div class="adaptive-label">Missoes ativas</div>' +
+        renderQuestList(gamificationStats.quests || level.quests || []) +
+      '</section>' +
+      '<section class="adaptive-card achievement-card">' +
+        '<div class="adaptive-label">Conquistas</div>' +
+        renderAchievementList(gamificationStats.achievements || level.achievements || []) +
       '</section>' +
       '<section class="adaptive-card next-step-card">' +
         '<div class="adaptive-label">Próximo passo</div>' +
@@ -1979,6 +1991,38 @@ export const JapaneseUI = (() => {
         renderQuickSessions(quickSessions) +
       '</section>'
     );
+  }
+
+  function renderLevelBreakdown(dimensions = {}) {
+    const habit = Number(dimensions.habit || 0);
+    const mastery = Number(dimensions.mastery || 0);
+    const practice = Number(dimensions.practice || 0);
+
+    return '<div class="level-breakdown">' +
+      '<span>Habito <strong>' + habit + '</strong></span>' +
+      '<span>Dominio <strong>' + mastery + '</strong></span>' +
+      '<span>Pratica <strong>' + practice + '</strong></span>' +
+    '</div>';
+  }
+
+  function renderQuestList(items) {
+    if (!items || items.length === 0) return '<p>Nenhuma missao ativa.</p>';
+    return '<div class="quest-list">' + items.slice(0, 4).map(item => {
+      const target = Math.max(Number(item.target || 0), 1);
+      const progress = Math.min(Number(item.progress || 0), target);
+      const percent = Math.round((progress / target) * 100);
+      return '<div class="quest-item">' +
+        '<div class="quest-row"><strong>' + escapeHtml(item.title || 'Missao') + '</strong><span>' + progress + '/' + target + '</span></div>' +
+        '<div class="progress-track mini"><div class="progress-fill" style="width:' + percent + '%"></div></div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  function renderAchievementList(items) {
+    if (!items || items.length === 0) return '<p>Conquistas aparecem conforme voce estuda.</p>';
+    return '<div class="achievement-list">' + items.slice(0, 8).map(item =>
+      '<span class="achievement-pill' + (item.unlocked ? ' unlocked' : '') + '">' + escapeHtml(item.title || 'Conquista') + '</span>'
+    ).join('') + '</div>';
   }
 
   function renderGuidedTrails(items) {

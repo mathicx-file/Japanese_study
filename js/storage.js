@@ -10,6 +10,7 @@ import {
   getDayKey,
   calculateStreak
 } from './srs-engine.js';
+import { JapaneseGamificationEngine } from './gamification-engine.js';
 
 export const JapaneseStorage = (() => {
   const DB_NAME = 'JapaneseStudyDB';
@@ -143,6 +144,9 @@ export const JapaneseStorage = (() => {
         : pickSrsBase(current)
     };
     setSrsMap(map);
+    saveGamificationEvent(JapaneseGamificationEngine.buildSrsEvent(charData, rating, map[charId]))
+      .then(() => emitChange('gamification-updated', { source: 'srs', charId }))
+      .catch(() => {});
     return map[charId];
   }
 
@@ -182,9 +186,9 @@ export const JapaneseStorage = (() => {
       const store = tx.objectStore(STORE_NAME);
       const timestamp = Date.now();
       const record = {
-        id: `${data.type}_${data.charId}_${timestamp}`,
-        schemaVersion: 1,
-        entityType: 'progress-record',
+        id: data.id || `${data.type}_${data.charId}_${timestamp}`,
+        schemaVersion: data.schemaVersion || 1,
+        entityType: data.entityType || 'progress-record',
         charId: data.charId,
         type: data.type,
         value: data.value,
@@ -216,11 +220,29 @@ export const JapaneseStorage = (() => {
         errors: data.errors,
         total: data.total,
         completed: data.completed,
-        settings: data.settings
+        settings: data.settings,
+        eventType: data.eventType,
+        source: data.source,
+        action: data.action,
+        xp: data.xp,
+        skill: data.skill,
+        itemId: data.itemId,
+        details: data.details,
+        syncStatus: data.syncStatus,
+        createdAt: data.createdAt
       };
       const req = store.put(record);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveGamificationEvent(event) {
+    if (!event) return null;
+    return saveProgress({
+      ...event,
+      type: 'gamification_event',
+      value: event.xp || event.value || 0
     });
   }
 
@@ -364,7 +386,7 @@ export const JapaneseStorage = (() => {
     if (!question || !question.target || !result || result.empty || result.locked) return null;
 
     const target = question.target;
-    return saveProgress({
+    const answerRecord = await saveProgress({
       type: result.correct ? 'quiz_answer' : 'quiz_error',
       charId: buildStudyId(target),
       value: result.correct ? 1 : 0,
@@ -382,6 +404,8 @@ export const JapaneseStorage = (() => {
       mode: question.mode || question.type,
       review: Boolean(question.review)
     });
+    await saveGamificationEvent(JapaneseGamificationEngine.buildQuizEvent(question, result));
+    return answerRecord;
   }
 
   async function saveTypingSession(summary) {
@@ -422,6 +446,11 @@ export const JapaneseStorage = (() => {
       category: summary.settings?.category
     })));
 
+    await saveGamificationEvent(JapaneseGamificationEngine.buildTypingEvent({
+      ...summary,
+      sessionId
+    }));
+
     return sessionRecord;
   }
 
@@ -440,6 +469,25 @@ export const JapaneseStorage = (() => {
       totalKanaTyped,
       averageAccuracy,
       recentErrors: errors.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 10)
+    };
+  }
+
+  async function getGamificationEvents(limit = 1000) {
+    const records = await getAllProgress();
+    return records
+      .filter(record => record.type === 'gamification_event' || record.entityType === 'gamification-event')
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, limit);
+  }
+
+  async function getGamificationStats(context = {}) {
+    const events = await getGamificationEvents(1000);
+    return {
+      ...JapaneseGamificationEngine.summarize({
+        ...context,
+        events
+      }),
+      events
     };
   }
 
@@ -800,6 +848,9 @@ export const JapaneseStorage = (() => {
     getQuizStats,
     saveTypingSession,
     getTypingStats,
+    saveGamificationEvent,
+    getGamificationEvents,
+    getGamificationStats,
     getDifficultyMap,
     getLastViewed,
     openDB,

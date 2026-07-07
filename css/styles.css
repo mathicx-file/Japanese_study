@@ -612,6 +612,81 @@ body {
   margin-top: 0.15rem;
 }
 
+.level-xp {
+  margin-bottom: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.level-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0.55rem 0;
+}
+
+.level-breakdown span {
+  padding: 0.4rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.level-breakdown strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+}
+
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.quest-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.28rem;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+.quest-row strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.progress-track.mini {
+  height: 0.36rem;
+}
+
+.achievement-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.achievement-pill {
+  padding: 0.25rem 0.48rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.achievement-pill.unlocked {
+  border-color: rgba(230,57,70,0.35);
+  background: rgba(230,57,70,0.1);
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .adaptive-card h3 {
   margin-bottom: 0.45rem;
   color: var(--text-primary);
