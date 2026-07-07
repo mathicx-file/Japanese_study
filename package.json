@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test",
     "check:mojibake": "node scripts/mojibake-check.mjs",
-    "fix:mojibake": "node scripts/mojibake-check.mjs --fix"
+    "fix:mojibake": "node scripts/mojibake-check.mjs --fix",
+    "download:kana-strokes": "node scripts/download-kana-strokes.mjs"
   }
 }

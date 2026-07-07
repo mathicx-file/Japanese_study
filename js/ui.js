@@ -6,6 +6,7 @@ import { JapaneseKanaInput } from './kana-input.js';
 import { JapaneseTypingEvaluator } from './typing-evaluator.js';
 
 export const JapaneseUI = (() => {
+  let allCharacters = [];
   let currentCharacters = [];
   let currentFilters = { script: 'hiragana', category: '', onlyFavorites: false, dueReview: false };
   let currentView = 'home';
@@ -20,6 +21,15 @@ export const JapaneseUI = (() => {
 
   function init() {
     elements.searchInput = document.getElementById('search-input');
+    elements.kanaExportToggle = document.getElementById('kana-export-toggle');
+    elements.kanaExportPanel = document.getElementById('kana-export-panel');
+    elements.kanaExportScript = document.getElementById('kana-export-script');
+    elements.kanaExportPractice = document.getElementById('kana-export-practice');
+    elements.kanaExportCharacterList = document.getElementById('kana-export-character-list');
+    elements.kanaExportGenerate = document.getElementById('kana-export-generate');
+    elements.kanaExportSummary = document.getElementById('kana-export-summary');
+    elements.kanaExportSelectAll = document.getElementById('kana-export-select-all');
+    elements.kanaExportSelectNone = document.getElementById('kana-export-select-none');
     elements.dictionarySearchInput = document.getElementById('dictionary-search-input');
     elements.filtersBar = document.getElementById('filters-bar');
     elements.grid = document.getElementById('character-grid');
@@ -85,6 +95,9 @@ export const JapaneseUI = (() => {
 
     document.getElementById('modal-close-btn').addEventListener('click', closeModal);
     elements.grid.addEventListener('click', handleGridClick);
+    if (elements.kanaExportToggle) elements.kanaExportToggle.addEventListener('click', toggleKanaExportPanel);
+    if (elements.kanaExportPanel) elements.kanaExportPanel.addEventListener('click', handleKanaExportClick);
+    if (elements.kanaExportPanel) elements.kanaExportPanel.addEventListener('change', handleKanaExportChange);
     elements.viewTabs.addEventListener('click', handleViewTabsClick);
     elements.dictionaryToolbar.addEventListener('click', handleDictionaryToolbarClick);
     elements.dictionaryGrid.addEventListener('click', handleDictionaryClick);
@@ -134,7 +147,8 @@ export const JapaneseUI = (() => {
   }
 
   function setCharacters(chars) {
-    currentCharacters = chars;
+    allCharacters = chars || [];
+    renderKanaExportChoices();
   }
 
   function getFilters() {
@@ -378,6 +392,131 @@ export const JapaneseUI = (() => {
         JapaneseStorage.emitChange('dictionary-history-updated', { wordId: word.id });
       }).catch(() => {});
     }
+  }
+
+  function toggleKanaExportPanel() {
+    const isHidden = elements.kanaExportPanel.hidden;
+    elements.kanaExportPanel.hidden = !isHidden;
+    elements.kanaExportToggle.setAttribute('aria-expanded', String(isHidden));
+    if (isHidden) renderKanaExportChoices();
+  }
+
+  function handleKanaExportClick(e) {
+    const modeBtn = e.target.closest('[data-kana-export-mode]');
+    if (modeBtn) {
+      elements.kanaExportPanel.dataset.mode = modeBtn.dataset.kanaExportMode;
+      updateKanaExportMode();
+      return;
+    }
+
+    if (e.target === elements.kanaExportSelectAll) {
+      setKanaExportChoiceState(true);
+      updateKanaExportSummary();
+      return;
+    }
+
+    if (e.target === elements.kanaExportSelectNone) {
+      setKanaExportChoiceState(false);
+      updateKanaExportSummary();
+      return;
+    }
+
+    if (e.target === elements.kanaExportGenerate && typeof onKanaExport === 'function') {
+      onKanaExport(getKanaExportSettings());
+    }
+  }
+
+  function handleKanaExportChange(e) {
+    if (!elements.kanaExportPanel || !elements.kanaExportPanel.contains(e.target)) return;
+    if (e.target === elements.kanaExportScript || e.target.closest('.kana-export-categories')) {
+      renderKanaExportChoices();
+    }
+    updateKanaExportSummary();
+  }
+
+  function updateKanaExportMode() {
+    const mode = getKanaExportMode();
+    elements.kanaExportPanel.querySelectorAll('[data-kana-export-mode]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.kanaExportMode === mode);
+    });
+    if (elements.kanaExportPractice) elements.kanaExportPractice.hidden = mode !== 'practice';
+    renderKanaExportChoices();
+    updateKanaExportSummary();
+  }
+
+  function renderKanaExportChoices() {
+    if (!elements.kanaExportCharacterList) return;
+    const script = elements.kanaExportScript ? elements.kanaExportScript.value : 'hiragana';
+    const categories = getKanaExportCategories();
+    const chars = (allCharacters || []).filter(char =>
+      char.script === script &&
+      categories.includes(char.category)
+    );
+
+    if (!chars.length) {
+      elements.kanaExportCharacterList.innerHTML = '<div class="kana-export-empty">Nenhum caractere para estes filtros.</div>';
+      updateKanaExportSummary();
+      return;
+    }
+
+    elements.kanaExportCharacterList.innerHTML = chars.map(char => {
+      const id = JapaneseSearch.buildId(char);
+      return '<label class="kana-export-choice">' +
+        '<input type="checkbox" value="' + escapeHtml(id) + '" checked>' +
+        '<strong>' + escapeHtml(char.char) + '</strong>' +
+        '<span>' + escapeHtml(char.romaji) + '</span>' +
+      '</label>';
+    }).join('');
+    updateKanaExportSummary();
+  }
+
+  function setKanaExportChoiceState(checked) {
+    if (!elements.kanaExportCharacterList) return;
+    elements.kanaExportCharacterList.querySelectorAll('input[type="checkbox"]').forEach(input => {
+      input.checked = checked;
+    });
+  }
+
+  function getKanaExportSettings() {
+    const mode = getKanaExportMode();
+    const settings = {
+      type: mode,
+      script: elements.kanaExportScript ? elements.kanaExportScript.value : 'hiragana',
+      categories: getKanaExportCategories()
+    };
+
+    if (mode === 'practice' && elements.kanaExportCharacterList) {
+      settings.characterIds = Array.from(elements.kanaExportCharacterList.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(input => input.value);
+    }
+
+    return settings;
+  }
+
+  function getKanaExportMode() {
+    return elements.kanaExportPanel?.dataset.mode || 'reference';
+  }
+
+  function getKanaExportCategories() {
+    if (!elements.kanaExportPanel) return ['gojuuon', 'dakuon', 'handakuon', 'youon'];
+    const selected = Array.from(elements.kanaExportPanel.querySelectorAll('.kana-export-categories input[type="checkbox"]:checked'))
+      .map(input => input.value);
+    return selected.length ? selected : ['gojuuon', 'dakuon', 'handakuon', 'youon'];
+  }
+
+  function updateKanaExportSummary() {
+    if (!elements.kanaExportSummary) return;
+    const script = elements.kanaExportScript?.value === 'katakana' ? 'Katakana' : 'Hiragana';
+    const categoryCount = getKanaExportCategories().length;
+    const categoryText = categoryCount === 4 ? 'todos os niveis' : categoryCount + ' niveis';
+    let choiceText = '';
+
+    if (getKanaExportMode() === 'practice' && elements.kanaExportCharacterList) {
+      const checked = elements.kanaExportCharacterList.querySelectorAll('input[type="checkbox"]:checked').length;
+      choiceText = ' - ' + checked + ' selecionados';
+    }
+
+    elements.kanaExportSummary.textContent = script + ' - ' + categoryText + choiceText;
   }
 
   function handleAdaptiveDashboardClick(e) {
@@ -983,6 +1122,7 @@ export const JapaneseUI = (() => {
   let onBackupFileSelected = null;
   let onBackupImport = null;
   let onClearData = null;
+  let onKanaExport = null;
   let onStudyNow = null;
   let onDiagnostic = null;
   let onGuidedTrail = null;
@@ -1058,6 +1198,10 @@ export const JapaneseUI = (() => {
 
   function onClearDataCallback(cb) {
     onClearData = cb;
+  }
+
+  function onKanaExportCallback(cb) {
+    onKanaExport = cb;
   }
 
   function onStudyNowCallback(cb) {
@@ -1746,6 +1890,7 @@ export const JapaneseUI = (() => {
     onBackupFileSelectedCallback,
     onBackupImportCallback,
     onClearDataCallback,
+    onKanaExportCallback,
     onStudyNowCallback,
     onDiagnosticCallback,
     onGuidedTrailCallback,

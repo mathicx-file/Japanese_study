@@ -219,6 +219,192 @@ body {
   color: var(--text-secondary);
 }
 
+.section-action-btn {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  transition: var(--transition);
+}
+
+.section-action-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.section-action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.section-action-btn.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.kana-export-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+
+.kana-export-panel[hidden],
+.kana-export-practice[hidden] {
+  display: none;
+}
+
+.kana-export-tabs {
+  display: inline-flex;
+  width: fit-content;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.kana-export-tab {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.kana-export-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.kana-export-controls,
+.kana-export-actions,
+.kana-export-practice-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.kana-export-controls label,
+.kana-export-categories {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.kana-export-controls select {
+  display: block;
+  min-width: 150px;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.kana-export-categories {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  min-width: min(100%, 520px);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.kana-export-categories legend {
+  padding: 0 0.25rem;
+  color: var(--text-secondary);
+}
+
+.kana-export-categories label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.kana-export-practice {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.kana-export-practice-header {
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.kana-export-practice-header button {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.kana-export-practice-header button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.kana-export-character-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow: auto;
+  padding: 0.35rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.kana-export-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.35rem;
+  padding: 0.45rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.kana-export-choice strong {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.kana-export-choice span {
+  grid-column: 2;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.kana-export-empty,
+#kana-export-summary {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
 .section-tools {
   align-items: center;
   flex-wrap: wrap;
@@ -2085,6 +2271,9 @@ body {
   .view-tabs,
   .section-header,
   .section-tools,
+  .kana-export-controls,
+  .kana-export-actions,
+  .kana-export-practice-header,
   .dictionary-toolbar,
   .dictionary-header,
   .quiz-header,

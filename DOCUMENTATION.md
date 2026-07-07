@@ -5,9 +5,9 @@ Aplicação web standalone para estudo de hiragana e katakana, criada para ser c
 O projeto usa apenas HTML5, CSS3 e JavaScript vanilla com ES Modules. Não há etapa de build, bundler ou dependência de framework.
 
 ```text
-Versão atual: 2.1
-Última atualização da documentação: 2026-06-30
-Próxima versão recomendada: 2.2 - Expansão da Digitação Guiada
+Versão atual: 2.2
+Última atualização da documentação: 2026-07-06
+Próxima versão recomendada: 2.3 - Expansão da Digitação Guiada
 ```
 
 ## Objetivo
@@ -25,7 +25,8 @@ O app ajuda no aprendizado inicial da escrita japonesa, com foco em:
 - quiz e flashcards;
 - digitação guiada de frases curtas em hiragana;
 - reprodução animada de traços quando há SVG disponível;
-- prática de escrita em canvas.
+- prática de escrita em canvas;
+- exportação A4 de tabelas e folhas de prática de kana para impressão/PDF.
 
 Kanji está previsto no roadmap, mas deve entrar primeiro como uma fatia vertical pequena e completa antes da expansão para JLPT N5/N4.
 
@@ -45,6 +46,7 @@ Applications/japanese-study/
 │   ├── stroke-player.js
 │   ├── search.js
 │   ├── dictionary.js
+│   ├── kana-print-export.js
 │   ├── quiz.js
 │   ├── practice.js
 │   ├── typing-content-provider.js
@@ -76,6 +78,7 @@ O projeto é dividido por responsabilidade:
 - `js/practice.js`: desenho em canvas e avaliação simples da escrita.
 - `js/quiz.js`: geração de perguntas, validação de respostas e pontuação do quiz.
 - `js/dictionary.js`: carregamento, busca, histórico e favoritos do dicionário.
+- `js/kana-print-export.js`: gera documentos A4 de hiragana/katakana para imprimir ou salvar como PDF.
 - `js/typing-content-provider.js`: carregamento, normalização e filtro dos exercícios locais de digitação guiada.
 - `js/typing-evaluator.js`: normalização, comparação de respostas e identificação do primeiro erro.
 - `js/typing-session.js`: controle da sessão, resumo, precisão e velocidade em kana por minuto.
@@ -201,15 +204,16 @@ Esta tabela substitui a leitura antiga de conformidade por uma visão centraliza
 | Aprendizagem adaptativa | Concluído | 1.7 | Estudar agora, níveis, recomendações, diagnóstico, mapa de dificuldades e quiz configurável |
 | Kanji N5 inicial | Concluído | 2.0 | Primeira fatia vertical com 10 kanji integrada a busca, dicionário, SRS, quiz, escrita, backup e dashboard |
 | Digitação guiada | Concluído | 2.1 | MVP local-first com hiragana, cópia guiada, JSON local, conversão romaji para kana, feedback e persistência |
-| Expansão da digitação guiada | Planejado | 2.2 | Katakana, tradução guiada, dicas, textos médios e caderno de erros frasal |
-| Integração profunda | Planejado | 2.3 | Widget, launcher, deep links, notificações e status em tempo real |
+| Exportação A4 de kana | Concluído | 2.2 | Tabela de consulta e folha de prática de escrita com seleção por escrita, níveis e caracteres |
+| Expansão da digitação guiada | Planejado | 2.3 | Katakana, tradução guiada, dicas, textos médios e caderno de erros frasal |
+| Integração profunda | Planejado | 2.4 | Widget, launcher, deep links, notificações e status em tempo real |
 | Assistente de estudo diário | Em andamento | 1.7+ | Recomendações explicáveis, evidências, sessão sugerida e resumo pós-quiz |
 | Assistente de estudos avançado | Planejado | 3.0 | Plano semanal, objetivos, análise de progresso e orquestração mais completa |
 | Sincronização opcional | Planejado | 4.0 | Backup remoto, conflitos, conta opcional e cache local |
 
 ## Riscos e Pontos Técnicos
 
-- Dependência externa: o carregamento de SVGs usa GitHub raw. Sem internet ou com bloqueio de rede, a ordem real dos traços não aparece.
+- Dependência externa: kana possui SVGs locais em `assets/strokes/kana/`; quando algum SVG local faltar, o app tenta GitHub raw como fallback. Sem asset local e sem rede, a ordem real dos traços não aparece.
 - Encoding: os arquivos devem permanecer em UTF-8. Alguns terminais podem exibir caracteres japoneses e ícones de forma corrompida se o console não estiver em UTF-8; antes de editar manualmente, confirmar com `npm run check:mojibake`.
 - Segurança de HTML: a UI monta alguns trechos com `innerHTML`. Como os dados vêm de JSON local controlado, o risco é baixo, mas isso deve ser revisto se houver importação de dados externos no futuro.
 - Escalabilidade: a grade de caracteres já usa event delegation, mas filtros e controles internos ainda podem ser simplificados no futuro.

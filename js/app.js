@@ -11,6 +11,7 @@ import { JapaneseRecommendationEngine } from './recommendation-engine.js';
 import { JapaneseTypingContentProvider } from './typing-content-provider.js';
 import { JapaneseTypingEvaluator } from './typing-evaluator.js';
 import { createTypingSession } from './typing-session.js';
+import { JapaneseKanaPrintExport } from './kana-print-export.js';
 
 const JapaneseApp = (() => {
   let allData = [];
@@ -153,6 +154,10 @@ const JapaneseApp = (() => {
 
       JapaneseUI.onClearDataCallback(() => {
         clearLocalData();
+      });
+
+      JapaneseUI.onKanaExportCallback((settings) => {
+        exportKanaPrint(settings);
       });
 
       JapaneseUI.onStudyNowCallback(() => {
@@ -398,6 +403,13 @@ const JapaneseApp = (() => {
       console.error('Failed to clear local data:', error);
       JapaneseUI.showClearDataStatus('Não foi possível excluir os dados locais.', 'error');
     }
+  }
+
+  async function exportKanaPrint(settings = {}) {
+    await JapaneseKanaPrintExport.print({
+      ...settings,
+      characters: allData
+    });
   }
 
   async function renderDictionary() {

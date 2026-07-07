@@ -33,6 +33,7 @@ O projeto usa HTML, CSS e JavaScript vanilla com ES Modules. Nao ha framework, e
 - Historico local de estudo e historico de consultas do dicionario.
 - Pratica de escrita em canvas com avaliacao baseada em tracos quando ha modelo comparavel.
 - Mnemotecnicos pessoais salvos localmente por caractere.
+- Exportacao A4 de kana para tabela de consulta e folha de pratica de escrita imprimivel/salvavel como PDF.
 - Exportacao, validacao, mescla, substituicao e exclusao de dados locais.
 - Integracao por iframe com o ecossistema Mathicx-File via `manifest.js` e `view.js`.
 
@@ -132,6 +133,7 @@ A suite atual cobre:
 | `npm.cmd test` | Alternativa para PowerShell no Windows. |
 | `npm run check:mojibake` | Verifica se arquivos-fonte contem padroes conhecidos de mojibake. |
 | `npm run fix:mojibake` | Tenta corrigir mojibakes UTF-8 interpretados como Windows-1252/Latin-1. Revise o diff depois. |
+| `npm run download:kana-strokes` | Baixa/atualiza os SVGs locais de hiragana e katakana usados na sequencia de tracos. |
 | `node scripts/mojibake-check.mjs` | Executa diretamente a mesma verificacao de encoding. |
 | `node scripts/mojibake-check.mjs --fix` | Executa diretamente a correcao automatica de mojibake. |
 | `python -m http.server 8080` | Sobe servidor estatico local. |
@@ -179,6 +181,7 @@ O app e um SPA simples sem roteador formal. A navegacao principal acontece por a
 |   |-- app.js
 |   |-- dictionary.js
 |   |-- kana-input.js
+|   |-- kana-print-export.js
 |   |-- learning-levels.js
 |   |-- practice.js
 |   |-- quiz.js
@@ -219,6 +222,7 @@ O app e um SPA simples sem roteador formal. A navegacao principal acontece por a
 | `js/storage.js` | Centraliza LocalStorage, IndexedDB, progresso, favoritos, SRS, settings, backup e importacao. |
 | `js/search.js` | Busca em kana e kanji, incluindo campos de significado, leitura, radical, tags e vocabulario. |
 | `js/dictionary.js` | Mantem e filtra palavras do dicionario local. |
+| `js/kana-print-export.js` | Gera documentos A4 de hiragana/katakana para imprimir ou salvar como PDF. |
 | `js/quiz.js` | Gera perguntas, valida respostas, controla placar e revisao de erros. |
 | `js/srs-engine.js` | Calcula agenda de repeticao espacada, intervalos, facilidade, streak e normalizacao. |
 | `js/study-engine.js` | Converte recomendacoes em sessoes de estudo executaveis. |
@@ -447,7 +451,7 @@ O progresso fica no navegador. Se voce limpar dados do site, LocalStorage ou Ind
 
 ### SVG de tracos nao aparece
 
-O app tenta carregar SVG local em `assets/strokes/` antes de recorrer ao fallback remoto do KanjiVG. Se nao houver asset local e a rede bloquear o acesso remoto, a animacao real de tracos pode nao aparecer.
+O app tenta carregar SVG local em `assets/strokes/` antes de recorrer ao fallback remoto do KanjiVG. A folha de pratica de escrita usa os arquivos em `assets/strokes/kana/`; se aparecer apenas "modelo", atualize esses assets com `npm run download:kana-strokes` e recarregue o app.
 
 ### Backup nao importa
 

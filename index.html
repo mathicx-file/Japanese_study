@@ -62,6 +62,46 @@
           <h2>Caracteres</h2>
           <p>Busque e estude hiragana, katakana e kanji N5.</p>
         </div>
+        <button id="kana-export-toggle" class="section-action-btn" type="button" aria-expanded="false" aria-controls="kana-export-panel">Exportar</button>
+      </div>
+      <div id="kana-export-panel" class="kana-export-panel" hidden>
+        <div class="kana-export-tabs" role="tablist" aria-label="Tipo de exportacao">
+          <button class="kana-export-tab active" type="button" data-kana-export-mode="reference">Tabela</button>
+          <button class="kana-export-tab" type="button" data-kana-export-mode="practice">Pratica de escrita</button>
+        </div>
+
+        <div class="kana-export-controls">
+          <label>
+            Escrita
+            <select id="kana-export-script">
+              <option value="hiragana">Hiragana</option>
+              <option value="katakana">Katakana</option>
+            </select>
+          </label>
+          <fieldset class="kana-export-categories">
+            <legend>Niveis</legend>
+            <label><input type="checkbox" value="gojuuon" checked> Gojuuon</label>
+            <label><input type="checkbox" value="dakuon" checked> Dakuon</label>
+            <label><input type="checkbox" value="handakuon" checked> Handakuon</label>
+            <label><input type="checkbox" value="youon" checked> Youon</label>
+          </fieldset>
+        </div>
+
+        <div id="kana-export-practice" class="kana-export-practice" hidden>
+          <div class="kana-export-practice-header">
+            <span>Caracteres para praticar</span>
+            <div>
+              <button id="kana-export-select-all" type="button">Todos</button>
+              <button id="kana-export-select-none" type="button">Limpar</button>
+            </div>
+          </div>
+          <div id="kana-export-character-list" class="kana-export-character-list"></div>
+        </div>
+
+        <div class="kana-export-actions">
+          <span id="kana-export-summary">Hiragana - todos os niveis</span>
+          <button id="kana-export-generate" class="section-action-btn primary" type="button">Gerar PDF</button>
+        </div>
       </div>
       <div class="section-tools">
         <div class="search-container">

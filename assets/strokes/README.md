@@ -2,6 +2,12 @@
 
 Place local KanjiVG-compatible SVG files here to reduce network dependency.
 
+Kana SVGs can be refreshed from the project root with:
+
+```bash
+npm run download:kana-strokes
+```
+
 Expected layout:
 
 ```text
