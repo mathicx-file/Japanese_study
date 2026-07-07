@@ -85,6 +85,17 @@
             <label><input type="checkbox" value="handakuon" checked> Handakuon</label>
             <label><input type="checkbox" value="youon" checked> Youon</label>
           </fieldset>
+          <label class="kana-export-practice-option" hidden>
+            Orientacao
+            <select id="kana-export-orientation">
+              <option value="landscape">Paisagem</option>
+              <option value="portrait">Retrato</option>
+            </select>
+          </label>
+          <label class="kana-export-practice-option" hidden>
+            Linhas extras
+            <input id="kana-export-extra-rows" type="number" min="0" max="6" step="1" value="0">
+          </label>
         </div>
 
         <div id="kana-export-practice" class="kana-export-practice" hidden>
@@ -100,7 +111,10 @@
 
         <div class="kana-export-actions">
           <span id="kana-export-summary">Hiragana - todos os niveis</span>
-          <button id="kana-export-generate" class="section-action-btn primary" type="button">Gerar PDF</button>
+          <div class="kana-export-action-buttons">
+            <button id="kana-export-blank-generate" class="section-action-btn" type="button" hidden>Folha em branco</button>
+            <button id="kana-export-generate" class="section-action-btn primary" type="button">Gerar PDF</button>
+          </div>
         </div>
       </div>
       <div class="section-tools">

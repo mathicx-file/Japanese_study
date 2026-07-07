@@ -25,7 +25,7 @@ export const JapaneseKanaPrintExport = (() => {
 
   async function print(options = {}) {
     const characters = getKanaCharacters(options.characters, options);
-    if (!characters.length) {
+    if (!characters.length && !options.blankOnly) {
       window.alert('Nenhum caractere encontrado para exportar.');
       return;
     }
@@ -34,7 +34,9 @@ export const JapaneseKanaPrintExport = (() => {
     if (!printWindow) return;
     writeLoadingDocument(printWindow);
 
-    const html = options.type === 'practice'
+    const html = options.blankOnly
+      ? buildBlankPracticeHtml(options)
+      : options.type === 'practice'
       ? await buildPracticeHtml(characters, options)
       : buildReferenceHtml(characters, options);
 
@@ -63,24 +65,58 @@ export const JapaneseKanaPrintExport = (() => {
     const scriptLabel = getScriptLabel(options.script);
     const categoryLabel = getCategorySummary(options.categories);
     const rows = [];
+    const extraRows = clampInteger(options.extraRows, 0, 6);
 
     for (const char of characters) {
       const steps = await buildStrokeSteps(char);
-      rows.push(
-        '<tr>' +
-          '<td class="practice-model"><strong>' + escapeHtml(char.char) + '</strong><span>' + escapeHtml(char.romaji) + '</span></td>' +
-          '<td class="practice-strokes">' + steps + '</td>' +
-          Array.from({ length: 7 }).map(() => '<td class="practice-blank"></td>').join('') +
-        '</tr>'
-      );
+      rows.push(renderPracticeRow({
+        model: '<strong>' + escapeHtml(char.char) + '</strong><span>' + escapeHtml(char.romaji) + '</span>',
+        strokes: steps
+      }));
+
+      for (let i = 0; i < extraRows; i++) {
+        rows.push(renderPracticeRow({ blankModel: true }));
+      }
     }
 
     return buildDocument({
       title: 'Pratica de escrita - ' + scriptLabel,
       subtitle: categoryLabel,
       body: '<table class="practice-table"><tbody>' + rows.join('') + '</tbody></table>',
-      mode: 'practice'
+      mode: 'practice',
+      orientation: options.orientation
     });
+  }
+
+  function buildBlankPracticeHtml(options = {}) {
+    const scriptLabel = getScriptLabel(options.script);
+    const categoryLabel = getCategorySummary(options.categories);
+    const rows = Array.from({ length: getBlankRowCount(options.orientation) })
+      .map(() => renderPracticeRow({ blankModel: true }))
+      .join('');
+
+    return buildDocument({
+      title: 'Folha em branco - ' + scriptLabel,
+      subtitle: categoryLabel,
+      body: '<table class="practice-table blank-practice-table"><tbody>' + rows + '</tbody></table>',
+      mode: 'practice',
+      orientation: options.orientation
+    });
+  }
+
+  function renderPracticeRow({ model = '', strokes = '', blankModel = false } = {}) {
+    const modelCell = blankModel
+      ? '<td class="practice-model practice-empty-model"></td>'
+      : '<td class="practice-model">' + model + '</td>';
+    const strokeCell = strokes
+      ? '<td class="practice-strokes">' + strokes + '</td>'
+      : '<td class="practice-strokes practice-empty-strokes"></td>';
+
+    return '<tr>' +
+      modelCell +
+      strokeCell +
+      Array.from({ length: 7 }).map(() => '<td class="practice-blank"></td>').join('') +
+    '</tr>';
   }
 
   async function buildStrokeSteps(char) {
@@ -156,19 +192,20 @@ export const JapaneseKanaPrintExport = (() => {
     return { text: '' };
   }
 
-  function buildDocument({ title, subtitle, body, mode }) {
+  function buildDocument({ title, subtitle, body, mode, orientation }) {
     const printedAt = new Date().toLocaleDateString('pt-BR');
     return '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">' +
       '<title>' + escapeHtml(title) + '</title>' +
-      '<style>' + getPrintCss(mode) + '</style></head><body>' +
+      '<style>' + getPrintCss(mode, orientation) + '</style></head><body>' +
       '<header><div><h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(subtitle) + '</p></div><span>' + printedAt + '</span></header>' +
       body +
       '<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},250);});<\/script>' +
       '</body></html>';
   }
 
-  function getPrintCss(mode) {
-    const pageSize = mode === 'practice' ? 'A4 landscape' : 'A4 portrait';
+  function getPrintCss(mode, orientation) {
+    const pageOrientation = orientation === 'portrait' ? 'portrait' : 'landscape';
+    const pageSize = mode === 'practice' ? 'A4 ' + pageOrientation : 'A4 portrait';
     return `
       @page { size: ${pageSize}; margin: 10mm; }
       * { box-sizing: border-box; }
@@ -188,6 +225,8 @@ export const JapaneseKanaPrintExport = (() => {
       .practice-model strong { display: block; font-size: 24pt; line-height: 1; }
       .practice-model span { display: block; margin-top: 1mm; color: #555; font-size: 7pt; text-transform: uppercase; }
       .practice-strokes { width: 55mm; padding: 1mm; }
+      .practice-empty-model,
+      .practice-empty-strokes { background-image: linear-gradient(#e2e2e2 1px, transparent 1px), linear-gradient(90deg, #e2e2e2 1px, transparent 1px); background-size: 50% 50%; }
       .practice-blank { background-image: linear-gradient(#e2e2e2 1px, transparent 1px), linear-gradient(90deg, #e2e2e2 1px, transparent 1px); background-size: 50% 50%; }
       .stroke-step { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 12mm; height: 16mm; margin-right: 1mm; }
       .stroke-step svg { width: 10mm; height: 10mm; overflow: visible; }
@@ -236,6 +275,16 @@ export const JapaneseKanaPrintExport = (() => {
 
   function getScriptLabel(script) {
     return script === 'katakana' ? 'Katakana' : 'Hiragana';
+  }
+
+  function getBlankRowCount(orientation) {
+    return orientation === 'portrait' ? 10 : 7;
+  }
+
+  function clampInteger(value, min, max) {
+    const number = Number.parseInt(value, 10);
+    if (!Number.isFinite(number)) return min;
+    return Math.max(min, Math.min(max, number));
   }
 
   function getCharacterId(char) {

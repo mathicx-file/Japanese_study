@@ -33,7 +33,7 @@ O projeto usa HTML, CSS e JavaScript vanilla com ES Modules. Nao ha framework, e
 - Historico local de estudo e historico de consultas do dicionario.
 - Pratica de escrita em canvas com avaliacao baseada em tracos quando ha modelo comparavel.
 - Mnemotecnicos pessoais salvos localmente por caractere.
-- Exportacao A4 de kana para tabela de consulta e folha de pratica de escrita imprimivel/salvavel como PDF.
+- Exportacao A4 de kana para tabela de consulta, folha de pratica com tracos, folha em branco, orientacao retrato/paisagem e linhas extras.
 - Exportacao, validacao, mescla, substituicao e exclusao de dados locais.
 - Integracao por iframe com o ecossistema Mathicx-File via `manifest.js` e `view.js`.
 

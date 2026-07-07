@@ -27,9 +27,12 @@ export const JapaneseUI = (() => {
     elements.kanaExportPractice = document.getElementById('kana-export-practice');
     elements.kanaExportCharacterList = document.getElementById('kana-export-character-list');
     elements.kanaExportGenerate = document.getElementById('kana-export-generate');
+    elements.kanaExportBlankGenerate = document.getElementById('kana-export-blank-generate');
     elements.kanaExportSummary = document.getElementById('kana-export-summary');
     elements.kanaExportSelectAll = document.getElementById('kana-export-select-all');
     elements.kanaExportSelectNone = document.getElementById('kana-export-select-none');
+    elements.kanaExportOrientation = document.getElementById('kana-export-orientation');
+    elements.kanaExportExtraRows = document.getElementById('kana-export-extra-rows');
     elements.dictionarySearchInput = document.getElementById('dictionary-search-input');
     elements.filtersBar = document.getElementById('filters-bar');
     elements.grid = document.getElementById('character-grid');
@@ -423,6 +426,15 @@ export const JapaneseUI = (() => {
 
     if (e.target === elements.kanaExportGenerate && typeof onKanaExport === 'function') {
       onKanaExport(getKanaExportSettings());
+      return;
+    }
+
+    if (e.target === elements.kanaExportBlankGenerate && typeof onKanaExport === 'function') {
+      onKanaExport({
+        ...getKanaExportSettings(),
+        type: 'practice',
+        blankOnly: true
+      });
     }
   }
 
@@ -430,6 +442,12 @@ export const JapaneseUI = (() => {
     if (!elements.kanaExportPanel || !elements.kanaExportPanel.contains(e.target)) return;
     if (e.target === elements.kanaExportScript || e.target.closest('.kana-export-categories')) {
       renderKanaExportChoices();
+    }
+    if (e.target.matches('[data-kana-export-group]')) {
+      setKanaExportGroupState(e.target);
+    }
+    if (e.target.matches('[data-kana-export-character]')) {
+      updateKanaExportGroupStates();
     }
     updateKanaExportSummary();
   }
@@ -440,6 +458,10 @@ export const JapaneseUI = (() => {
       btn.classList.toggle('active', btn.dataset.kanaExportMode === mode);
     });
     if (elements.kanaExportPractice) elements.kanaExportPractice.hidden = mode !== 'practice';
+    elements.kanaExportPanel.querySelectorAll('.kana-export-practice-option').forEach(el => {
+      el.hidden = mode !== 'practice';
+    });
+    if (elements.kanaExportBlankGenerate) elements.kanaExportBlankGenerate.hidden = mode !== 'practice';
     renderKanaExportChoices();
     updateKanaExportSummary();
   }
@@ -459,21 +481,58 @@ export const JapaneseUI = (() => {
       return;
     }
 
-    elements.kanaExportCharacterList.innerHTML = chars.map(char => {
-      const id = JapaneseSearch.buildId(char);
-      return '<label class="kana-export-choice">' +
-        '<input type="checkbox" value="' + escapeHtml(id) + '" checked>' +
-        '<strong>' + escapeHtml(char.char) + '</strong>' +
-        '<span>' + escapeHtml(char.romaji) + '</span>' +
-      '</label>';
+    elements.kanaExportCharacterList.innerHTML = buildKanaExportGroups(chars).map(group => {
+      const checked = group.items.length > 0;
+      const choices = group.items.map(char => {
+        const id = JapaneseSearch.buildId(char);
+        return '<label class="kana-export-choice">' +
+          '<input type="checkbox" data-kana-export-character value="' + escapeHtml(id) + '" checked>' +
+          '<strong>' + escapeHtml(char.char) + '</strong>' +
+          '<span>' + escapeHtml(char.romaji) + '</span>' +
+        '</label>';
+      }).join('');
+
+      return '<details class="kana-export-group" ' + (checked ? 'open' : '') + '>' +
+        '<summary>' +
+          '<label class="kana-export-group-toggle">' +
+            '<input type="checkbox" data-kana-export-group="' + escapeHtml(group.key) + '" checked>' +
+            '<strong>' + escapeHtml(group.label) + '</strong>' +
+            '<span>' + group.items.length + ' caracteres</span>' +
+          '</label>' +
+        '</summary>' +
+        '<div class="kana-export-group-items">' + choices + '</div>' +
+      '</details>';
     }).join('');
+    updateKanaExportGroupStates();
     updateKanaExportSummary();
   }
 
   function setKanaExportChoiceState(checked) {
     if (!elements.kanaExportCharacterList) return;
-    elements.kanaExportCharacterList.querySelectorAll('input[type="checkbox"]').forEach(input => {
+    elements.kanaExportCharacterList.querySelectorAll('[data-kana-export-character]').forEach(input => {
       input.checked = checked;
+    });
+    updateKanaExportGroupStates();
+  }
+
+  function setKanaExportGroupState(groupInput) {
+    const group = groupInput.closest('.kana-export-group');
+    if (!group) return;
+    group.open = groupInput.checked;
+    group.querySelectorAll('[data-kana-export-character]').forEach(input => {
+      input.checked = groupInput.checked;
+    });
+  }
+
+  function updateKanaExportGroupStates() {
+    if (!elements.kanaExportCharacterList) return;
+    elements.kanaExportCharacterList.querySelectorAll('.kana-export-group').forEach(group => {
+      const groupInput = group.querySelector('[data-kana-export-group]');
+      const itemInputs = Array.from(group.querySelectorAll('[data-kana-export-character]'));
+      const checkedCount = itemInputs.filter(input => input.checked).length;
+      if (!groupInput || !itemInputs.length) return;
+      groupInput.checked = checkedCount === itemInputs.length;
+      groupInput.indeterminate = checkedCount > 0 && checkedCount < itemInputs.length;
     });
   }
 
@@ -482,11 +541,13 @@ export const JapaneseUI = (() => {
     const settings = {
       type: mode,
       script: elements.kanaExportScript ? elements.kanaExportScript.value : 'hiragana',
-      categories: getKanaExportCategories()
+      categories: getKanaExportCategories(),
+      orientation: elements.kanaExportOrientation ? elements.kanaExportOrientation.value : 'landscape',
+      extraRows: elements.kanaExportExtraRows ? Number(elements.kanaExportExtraRows.value || 0) : 0
     };
 
     if (mode === 'practice' && elements.kanaExportCharacterList) {
-      settings.characterIds = Array.from(elements.kanaExportCharacterList.querySelectorAll('input[type="checkbox"]:checked'))
+      settings.characterIds = Array.from(elements.kanaExportCharacterList.querySelectorAll('[data-kana-export-character]:checked'))
         .map(input => input.value);
     }
 
@@ -512,11 +573,77 @@ export const JapaneseUI = (() => {
     let choiceText = '';
 
     if (getKanaExportMode() === 'practice' && elements.kanaExportCharacterList) {
-      const checked = elements.kanaExportCharacterList.querySelectorAll('input[type="checkbox"]:checked').length;
-      choiceText = ' - ' + checked + ' selecionados';
+      const checked = elements.kanaExportCharacterList.querySelectorAll('[data-kana-export-character]:checked').length;
+      const extraRows = elements.kanaExportExtraRows ? Number(elements.kanaExportExtraRows.value || 0) : 0;
+      choiceText = ' - ' + checked + ' selecionados' + (extraRows > 0 ? ' - ' + extraRows + ' linhas extras' : '');
     }
 
     elements.kanaExportSummary.textContent = script + ' - ' + categoryText + choiceText;
+  }
+
+  function buildKanaExportGroups(chars) {
+    const groups = [];
+    const groupMap = new Map();
+
+    chars.forEach(char => {
+      const group = getKanaExportGroup(char);
+      if (!groupMap.has(group.key)) {
+        groupMap.set(group.key, { ...group, items: [] });
+        groups.push(groupMap.get(group.key));
+      }
+      groupMap.get(group.key).items.push(char);
+    });
+
+    return groups;
+  }
+
+  function getKanaExportGroup(char) {
+    const romaji = String(char.romaji || '').toLowerCase();
+    const category = char.category;
+
+    if (category === 'youon') {
+      const prefix = romaji.replace(/(ya|yu|yo|a|u|o)$/u, '');
+      const groupKey = getYouonGroupKey(prefix);
+      return { key: 'youon-' + groupKey, label: 'Youon ' + getKanaGroupLabel(groupKey).replace('Linha ', '') };
+    }
+
+    if (['a', 'i', 'u', 'e', 'o'].includes(romaji)) return { key: 'vowels', label: 'Vogais' };
+    if (romaji === 'n') return { key: 'n-final', label: 'N final' };
+    if (romaji === 'wo' || romaji === 'wa') return { key: 'w', label: 'Linha W' };
+    if (romaji === 'shi') return { key: 's', label: 'Linha S' };
+    if (romaji === 'chi' || romaji === 'tsu') return { key: 't', label: 'Linha T' };
+    if (romaji === 'fu') return { key: 'h', label: 'Linha H' };
+    if (romaji === 'ji' || romaji === 'zu') return { key: 'z', label: 'Linha Z/J' };
+    if (romaji === 'dji' || romaji === 'dzu') return { key: 'd', label: 'Linha D' };
+
+    const first = romaji.charAt(0) || 'other';
+    return { key: first, label: getKanaGroupLabel(first) };
+  }
+
+  function getYouonGroupKey(prefix) {
+    if (prefix === 'ch') return 't';
+    if (prefix === 'j') return 'z';
+    return String(prefix || 'other').charAt(0);
+  }
+
+  function getKanaGroupLabel(key) {
+    const labels = {
+      k: 'Linha K',
+      s: 'Linha S',
+      t: 'Linha T',
+      n: 'Linha N',
+      h: 'Linha H',
+      m: 'Linha M',
+      y: 'Linha Y',
+      r: 'Linha R',
+      w: 'Linha W',
+      g: 'Linha G',
+      z: 'Linha Z/J',
+      d: 'Linha D',
+      b: 'Linha B',
+      p: 'Linha P'
+    };
+    return labels[key] || 'Outros';
   }
 
   function handleAdaptiveDashboardClick(e) {

@@ -315,6 +315,18 @@ body {
   font: inherit;
 }
 
+.kana-export-controls input[type="number"] {
+  display: block;
+  width: 96px;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font: inherit;
+}
+
 .kana-export-categories {
   display: flex;
   align-items: center;
@@ -366,13 +378,72 @@ body {
 
 .kana-export-character-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 0.45rem;
-  max-height: 220px;
+  max-height: 320px;
   overflow: auto;
   padding: 0.35rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
+}
+
+.kana-export-group {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.kana-export-group summary {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.kana-export-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.kana-export-group summary::after {
+  content: '+';
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.kana-export-group[open] summary::after {
+  content: '-';
+}
+
+.kana-export-group-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.45rem;
+  width: 100%;
+  cursor: pointer;
+}
+
+.kana-export-group-toggle strong {
+  color: var(--text-primary);
+  font-size: 0.86rem;
+}
+
+.kana-export-group-toggle span {
+  grid-column: 2;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.kana-export-group-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--border-color);
 }
 
 .kana-export-choice {
@@ -403,6 +474,13 @@ body {
 #kana-export-summary {
   color: var(--text-secondary);
   font-size: 0.82rem;
+}
+
+.kana-export-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .section-tools {
@@ -2273,6 +2351,7 @@ body {
   .section-tools,
   .kana-export-controls,
   .kana-export-actions,
+  .kana-export-action-buttons,
   .kana-export-practice-header,
   .dictionary-toolbar,
   .dictionary-header,

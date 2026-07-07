@@ -204,7 +204,7 @@ Esta tabela substitui a leitura antiga de conformidade por uma visão centraliza
 | Aprendizagem adaptativa | Concluído | 1.7 | Estudar agora, níveis, recomendações, diagnóstico, mapa de dificuldades e quiz configurável |
 | Kanji N5 inicial | Concluído | 2.0 | Primeira fatia vertical com 10 kanji integrada a busca, dicionário, SRS, quiz, escrita, backup e dashboard |
 | Digitação guiada | Concluído | 2.1 | MVP local-first com hiragana, cópia guiada, JSON local, conversão romaji para kana, feedback e persistência |
-| Exportação A4 de kana | Concluído | 2.2 | Tabela de consulta e folha de prática de escrita com seleção por escrita, níveis e caracteres |
+| Exportação A4 de kana | Concluído | 2.2 | Tabela de consulta, folha de prática com traços, folha em branco, orientação retrato/paisagem, linhas extras e agrupamentos por linha fonética |
 | Expansão da digitação guiada | Planejado | 2.3 | Katakana, tradução guiada, dicas, textos médios e caderno de erros frasal |
 | Integração profunda | Planejado | 2.4 | Widget, launcher, deep links, notificações e status em tempo real |
 | Assistente de estudo diário | Em andamento | 1.7+ | Recomendações explicáveis, evidências, sessão sugerida e resumo pós-quiz |
