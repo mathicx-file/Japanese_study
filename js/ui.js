@@ -105,6 +105,7 @@ export const JapaneseUI = (() => {
     elements.dictionaryToolbar.addEventListener('click', handleDictionaryToolbarClick);
     elements.dictionaryGrid.addEventListener('click', handleDictionaryClick);
     elements.adaptiveDashboard.addEventListener('click', handleAdaptiveDashboardClick);
+    elements.adaptiveDashboard.addEventListener('change', handleAdaptiveDashboardChange);
     elements.quizSection.addEventListener('click', handleQuizClick);
     elements.quizSection.addEventListener('input', handleQuizInput);
     elements.quizSection.addEventListener('submit', handleQuizSubmit);
@@ -782,7 +783,28 @@ export const JapaneseUI = (() => {
     const quickBtn = e.target.closest('[data-quick-session]');
     if (quickBtn) {
       if (typeof onQuickSession === 'function') onQuickSession(quickBtn.dataset.quickSession);
+      return;
     }
+
+    const errorBtn = e.target.closest('[data-error-practice]');
+    if (errorBtn && typeof onErrorPractice === 'function') {
+      onErrorPractice({
+        char: errorBtn.dataset.errorChar || '',
+        script: errorBtn.dataset.errorScript || 'all',
+        category: errorBtn.dataset.errorCategory || ''
+      });
+    }
+  }
+
+  function handleAdaptiveDashboardChange(e) {
+    const input = e.target.closest('[data-goal-field]');
+    if (!input || typeof onGamificationGoalsChange !== 'function') return;
+
+    const goals = {};
+    elements.adaptiveDashboard.querySelectorAll('[data-goal-field]').forEach(field => {
+      goals[field.dataset.goalField] = Number(field.value || 0);
+    });
+    onGamificationGoalsChange(goals);
   }
 
   function toggleDictionaryFavorite(btn, id) {
@@ -1374,6 +1396,8 @@ export const JapaneseUI = (() => {
   let onDiagnostic = null;
   let onGuidedTrail = null;
   let onQuickSession = null;
+  let onGamificationGoalsChange = null;
+  let onErrorPractice = null;
 
   function onFilterChangeCallback(cb) {
     onFilterChange = cb;
@@ -1465,6 +1489,14 @@ export const JapaneseUI = (() => {
 
   function onQuickSessionCallback(cb) {
     onQuickSession = cb;
+  }
+
+  function onGamificationGoalsChangeCallback(cb) {
+    onGamificationGoalsChange = cb;
+  }
+
+  function onErrorPracticeCallback(cb) {
+    onErrorPractice = cb;
   }
 
   function updateBackupPreview(validation, fileName = '') {
@@ -1965,6 +1997,10 @@ export const JapaneseUI = (() => {
         '<div class="adaptive-label">Missoes ativas</div>' +
         renderQuestList(gamificationStats.quests || level.quests || []) +
       '</section>' +
+      '<section class="adaptive-card goals-card">' +
+        '<div class="adaptive-label">Metas</div>' +
+        renderGoalsEditor(gamificationStats.goals || level.goals || {}) +
+      '</section>' +
       '<section class="adaptive-card achievement-card">' +
         '<div class="adaptive-label">Conquistas</div>' +
         renderAchievementList(gamificationStats.achievements || level.achievements || []) +
@@ -1981,6 +2017,10 @@ export const JapaneseUI = (() => {
       '<section class="adaptive-card difficulty-card">' +
         '<div class="adaptive-label">Mapa de dificuldades</div>' +
         renderDifficultyList(difficulty) +
+      '</section>' +
+      '<section class="adaptive-card error-notebook-card">' +
+        '<div class="adaptive-label">Caderno de erros</div>' +
+        renderErrorNotebook(gamificationStats.errorNotebook || level.errorNotebook || []) +
       '</section>' +
       '<section class="adaptive-card guided-card">' +
         '<div class="adaptive-label">Trilhas guiadas</div>' +
@@ -2018,10 +2058,59 @@ export const JapaneseUI = (() => {
     }).join('') + '</div>';
   }
 
+  function renderGoalsEditor(goals = {}) {
+    const safe = {
+      dailyReviewTarget: Number(goals.dailyReviewTarget || 10),
+      quizAnswerTarget: Number(goals.quizAnswerTarget || 10),
+      weeklyStreakTarget: Number(goals.weeklyStreakTarget || 7),
+      typingSessionTarget: Number(goals.typingSessionTarget || 1)
+    };
+
+    return '<div class="goals-editor">' +
+      renderGoalInput('Revisoes', 'dailyReviewTarget', safe.dailyReviewTarget, 1, 50) +
+      renderGoalInput('Quiz', 'quizAnswerTarget', safe.quizAnswerTarget, 5, 50) +
+      renderGoalInput('Streak', 'weeklyStreakTarget', safe.weeklyStreakTarget, 1, 14) +
+      renderGoalInput('Digitacao', 'typingSessionTarget', safe.typingSessionTarget, 1, 10) +
+    '</div>';
+  }
+
+  function renderGoalInput(label, field, value, min, max) {
+    return '<label class="goal-input">' +
+      '<span>' + escapeHtml(label) + '</span>' +
+      '<input type="number" min="' + min + '" max="' + max + '" value="' + value + '" data-goal-field="' + field + '">' +
+    '</label>';
+  }
+
   function renderAchievementList(items) {
     if (!items || items.length === 0) return '<p>Conquistas aparecem conforme voce estuda.</p>';
     return '<div class="achievement-list">' + items.slice(0, 8).map(item =>
-      '<span class="achievement-pill' + (item.unlocked ? ' unlocked' : '') + '">' + escapeHtml(item.title || 'Conquista') + '</span>'
+      '<span class="achievement-pill' + (item.unlocked ? ' unlocked' : '') + '">' +
+        escapeHtml(item.title || 'Conquista') +
+        (item.isNew ? '<small>Novo</small>' : '') +
+      '</span>'
+    ).join('') + '</div>';
+  }
+
+  function renderErrorNotebook(items) {
+    if (!items || items.length === 0) {
+      return '<p>Nenhum erro recorrente registrado ainda.</p>';
+    }
+
+    return '<div class="error-notebook-list">' + items.slice(0, 5).map(item =>
+      '<article class="error-note">' +
+        '<div class="error-note-main">' +
+          '<strong>' + escapeHtml(item.char || '?') + '</strong>' +
+          '<div>' +
+            '<span>' + escapeHtml(item.romaji || item.charId || '') + '</span>' +
+            '<small>' + (item.accuracy || 0) + '% · ' + (item.errors || 0) + ' erro(s) · ' + escapeHtml(item.state || 'Atencao') + '</small>' +
+          '</div>' +
+        '</div>' +
+        (item.lastAnswered || item.lastExpected
+          ? '<div class="error-note-detail">Ultimo: ' + escapeHtml(item.lastAnswered || '-') + ' / esperado: ' + escapeHtml(item.lastExpected || '-') + '</div>'
+          : '') +
+        '<p>' + escapeHtml(item.recommendation || 'Inclua em uma revisao curta.') + '</p>' +
+        '<button class="quick-session-btn" type="button" data-error-practice data-error-char="' + escapeHtml(item.char || '') + '" data-error-script="' + escapeHtml(item.script || 'all') + '" data-error-category="' + escapeHtml(item.category || '') + '">Treinar</button>' +
+      '</article>'
     ).join('') + '</div>';
   }
 
@@ -2186,6 +2275,8 @@ export const JapaneseUI = (() => {
     onDiagnosticCallback,
     onGuidedTrailCallback,
     onQuickSessionCallback,
+    onGamificationGoalsChangeCallback,
+    onErrorPracticeCallback,
     updateBackupPreview,
     showBackupStatus,
     resetClearDataConfirmation,

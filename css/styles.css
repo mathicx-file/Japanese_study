@@ -687,6 +687,82 @@ body {
   font-weight: 700;
 }
 
+.achievement-pill small {
+  margin-left: 0.25rem;
+  color: var(--text-primary);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.goals-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.goal-input {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.goal-input input {
+  width: 100%;
+  padding: 0.42rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.error-notebook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.error-note {
+  padding: 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+
+.error-note-main {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.error-note-main strong {
+  min-width: 1.7rem;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.error-note-main span,
+.error-note-main small,
+.error-note-detail,
+.error-note p {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.error-note-detail,
+.error-note p {
+  margin-top: 0.45rem;
+}
+
+.error-note .quick-session-btn {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
 .adaptive-card h3 {
   margin-bottom: 0.45rem;
   color: var(--text-primary);

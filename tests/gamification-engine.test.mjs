@@ -76,3 +76,57 @@ test('progression balances habit, mastery and practice dimensions', () => {
   assert.ok(level.achievements.some(item => item.id === 'first-steps' && item.unlocked));
   assert.ok(level.quests.length >= 3);
 });
+
+test('custom goals shape quest targets', () => {
+  const level = JapaneseGamificationEngine.summarize({
+    goals: {
+      dailyReviewTarget: 5,
+      quizAnswerTarget: 20,
+      weeklyStreakTarget: 4,
+      typingSessionTarget: 2
+    },
+    stats: { streak: 3 },
+    srsStats: { totalTracked: 6, due: 2 },
+    quizStats: { answered: 12 },
+    typingStats: { sessions: 1 }
+  });
+
+  const quizQuest = level.quests.find(item => item.id === 'quiz-focus');
+  const streakQuest = level.quests.find(item => item.id === 'study-habit');
+
+  assert.equal(quizQuest.target, 20);
+  assert.equal(quizQuest.progress, 12);
+  assert.equal(streakQuest.target, 4);
+});
+
+test('error notebook summarizes recurring quiz errors', () => {
+  const level = JapaneseGamificationEngine.summarize({
+    difficulty: [
+      {
+        charId: 'shi_\u30b7',
+        char: '\u30b7',
+        romaji: 'shi',
+        script: 'katakana',
+        category: 'gojuuon',
+        accuracy: 40,
+        errors: 3,
+        total: 5,
+        state: 'Reforcar'
+      }
+    ],
+    quizStats: {
+      recentErrors: [
+        {
+          charId: 'shi_\u30b7',
+          expected: 'shi',
+          answered: 'tsu'
+        }
+      ]
+    }
+  });
+
+  assert.equal(level.errorNotebook.length, 1);
+  assert.equal(level.errorNotebook[0].script, 'katakana');
+  assert.equal(level.errorNotebook[0].lastAnswered, 'tsu');
+  assert.ok(level.errorNotebook[0].recommendation.includes('rodada curta'));
+});

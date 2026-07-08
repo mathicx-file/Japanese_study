@@ -184,7 +184,7 @@ export const JapaneseStorage = (() => {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const timestamp = Date.now();
+      const timestamp = Number(data.timestamp || Date.now());
       const record = {
         id: data.id || `${data.type}_${data.charId}_${timestamp}`,
         schemaVersion: data.schemaVersion || 1,
@@ -482,12 +482,68 @@ export const JapaneseStorage = (() => {
 
   async function getGamificationStats(context = {}) {
     const events = await getGamificationEvents(1000);
+    const settings = getSettings();
     return {
       ...JapaneseGamificationEngine.summarize({
         ...context,
-        events
+        events,
+        goals: getGamificationGoals(),
+        persistedAchievements: settings.gamificationAchievements || {}
       }),
       events
+    };
+  }
+
+  function getGamificationGoals() {
+    const settings = getSettings();
+    return JapaneseGamificationEngine.normalizeGoals(settings.gamificationGoals || {});
+  }
+
+  function setGamificationGoals(goals) {
+    const settings = getSettings();
+    const normalized = JapaneseGamificationEngine.normalizeGoals(goals || {});
+    setSettings({
+      ...settings,
+      gamificationGoals: normalized
+    });
+    emitChange('gamification-updated', { source: 'goals', goals: normalized });
+    return normalized;
+  }
+
+  function syncGamificationAchievements(achievements = []) {
+    const settings = getSettings();
+    const current = settings.gamificationAchievements && typeof settings.gamificationAchievements === 'object'
+      ? { ...settings.gamificationAchievements }
+      : {};
+    const now = new Date().toISOString();
+    const newlyUnlocked = [];
+
+    achievements.forEach(item => {
+      if (!item?.id || !item.unlocked) return;
+      const previous = current[item.id] || {};
+      if (!previous.unlocked) {
+        newlyUnlocked.push(item.id);
+      }
+      current[item.id] = {
+        ...previous,
+        id: item.id,
+        title: item.title,
+        unlocked: true,
+        unlockedAt: previous.unlockedAt || now,
+        seenAt: previous.seenAt || now
+      };
+    });
+
+    if (newlyUnlocked.length > 0) {
+      setSettings({
+        ...settings,
+        gamificationAchievements: current
+      });
+    }
+
+    return {
+      achievements: current,
+      newlyUnlocked
     };
   }
 
@@ -851,6 +907,9 @@ export const JapaneseStorage = (() => {
     saveGamificationEvent,
     getGamificationEvents,
     getGamificationStats,
+    getGamificationGoals,
+    setGamificationGoals,
+    syncGamificationAchievements,
     getDifficultyMap,
     getLastViewed,
     openDB,

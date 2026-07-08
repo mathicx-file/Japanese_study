@@ -25,6 +25,13 @@ export const JapaneseGamificationEngine = (() => {
     'typing.session': 8
   };
 
+  const DEFAULT_GOALS = {
+    dailyReviewTarget: 10,
+    quizAnswerTarget: 10,
+    weeklyStreakTarget: 7,
+    typingSessionTarget: 1
+  };
+
   function buildQuizEvent(question, result, now = Date.now()) {
     if (!question || !question.target || !result || result.empty || result.locked) return null;
 
@@ -174,8 +181,25 @@ export const JapaneseGamificationEngine = (() => {
         srsEvents: events.filter(event => event.source === 'srs').length,
         typingEvents: events.filter(event => event.source === 'typing').length
       },
-      achievements: buildAchievements({ xp, stats, completion, srsStats, quizStats, typingStats, events }),
-      quests: buildQuests({ stats, srsStats, quizStats, typingStats }),
+      goals: normalizeGoals(context.goals || context.settings?.gamificationGoals),
+      achievements: buildAchievements({
+        xp,
+        stats,
+        completion,
+        srsStats,
+        quizStats,
+        typingStats,
+        events,
+        persisted: context.persistedAchievements || context.settings?.gamificationAchievements
+      }),
+      quests: buildQuests({
+        stats,
+        srsStats,
+        quizStats,
+        typingStats,
+        goals: normalizeGoals(context.goals || context.settings?.gamificationGoals)
+      }),
+      errorNotebook: buildErrorNotebook(context.difficulty || [], context.quizStats || {}),
       hint: getHint({ current, completion, srsStats, quizStats, typingStats })
     };
   }
@@ -219,7 +243,8 @@ export const JapaneseGamificationEngine = (() => {
       Math.min(clampInteger(typingStats.sessions || 0, 0, 1000) * 12, 180);
   }
 
-  function buildAchievements({ xp, stats = {}, completion = {}, srsStats = {}, quizStats = {}, typingStats = {}, events = [] }) {
+  function buildAchievements({ xp, stats = {}, completion = {}, srsStats = {}, quizStats = {}, typingStats = {}, events = [], persisted = {} }) {
+    const stored = persisted && typeof persisted === 'object' ? persisted : {};
     const definitions = [
       { id: 'first-steps', title: 'Primeiros passos', unlocked: xp > 0 },
       { id: 'steady-week', title: 'Semana constante', unlocked: (stats.streak || 0) >= 7 },
@@ -231,36 +256,91 @@ export const JapaneseGamificationEngine = (() => {
       { id: 'event-ledger', title: 'Trilha registrada', unlocked: events.length >= 25 }
     ];
 
-    return definitions.map(item => ({ ...item, unlocked: Boolean(item.unlocked) }));
+    return definitions.map(item => {
+      const saved = stored[item.id] || {};
+      const unlocked = Boolean(item.unlocked || saved.unlocked);
+      return {
+        ...item,
+        unlocked,
+        unlockedAt: saved.unlockedAt || null,
+        seenAt: saved.seenAt || null,
+        isNew: unlocked && !saved.seenAt
+      };
+    });
   }
 
-  function buildQuests({ stats = {}, srsStats = {}, quizStats = {}, typingStats = {} }) {
+  function buildQuests({ stats = {}, srsStats = {}, quizStats = {}, typingStats = {}, goals = DEFAULT_GOALS }) {
+    const normalizedGoals = normalizeGoals(goals);
     return [
       {
         id: 'daily-review',
         title: 'Revisao do dia',
-        progress: Math.max(0, Math.min((srsStats.totalTracked || 0) - (srsStats.due || 0), 10)),
-        target: 10
+        progress: Math.max(0, Math.min((srsStats.totalTracked || 0) - (srsStats.due || 0), normalizedGoals.dailyReviewTarget)),
+        target: normalizedGoals.dailyReviewTarget
       },
       {
         id: 'quiz-focus',
-        title: '10 respostas no quiz',
-        progress: Math.min(quizStats.answered || 0, 10),
-        target: 10
+        title: normalizedGoals.quizAnswerTarget + ' respostas no quiz',
+        progress: Math.min(quizStats.answered || 0, normalizedGoals.quizAnswerTarget),
+        target: normalizedGoals.quizAnswerTarget
       },
       {
         id: 'study-habit',
         title: 'Manter ritmo',
-        progress: Math.min(stats.streak || 0, 7),
-        target: 7
+        progress: Math.min(stats.streak || 0, normalizedGoals.weeklyStreakTarget),
+        target: normalizedGoals.weeklyStreakTarget
       },
       {
         id: 'typing-practice',
         title: 'Sessao de digitacao',
-        progress: Math.min(typingStats.sessions || 0, 1),
-        target: 1
+        progress: Math.min(typingStats.sessions || 0, normalizedGoals.typingSessionTarget),
+        target: normalizedGoals.typingSessionTarget
       }
     ];
+  }
+
+  function buildErrorNotebook(difficulty = [], quizStats = {}) {
+    const recentErrors = Array.isArray(quizStats.recentErrors) ? quizStats.recentErrors : [];
+    const recentById = recentErrors.reduce((map, item) => {
+      if (item.charId && !map[item.charId]) map[item.charId] = item;
+      return map;
+    }, {});
+
+    return (Array.isArray(difficulty) ? difficulty : [])
+      .filter(item => (item.errors || 0) > 0 || (item.accuracy || 100) < 75)
+      .slice(0, 6)
+      .map(item => {
+        const recent = recentById[item.charId] || {};
+        return {
+          charId: item.charId,
+          char: item.char || recent.char || '?',
+          romaji: item.romaji || recent.romaji || '',
+          script: item.script || recent.script || 'all',
+          category: item.category || recent.category || '',
+          accuracy: item.accuracy || 0,
+          errors: item.errors || 0,
+          total: item.total || 0,
+          state: item.state || 'Atencao',
+          lastExpected: recent.expected || '',
+          lastAnswered: recent.answered || '',
+          recommendation: getErrorRecommendation(item)
+        };
+      });
+  }
+
+  function getErrorRecommendation(item = {}) {
+    if ((item.errors || 0) >= 3 && (item.accuracy || 0) < 50) return 'Faca uma rodada curta antes de estudar conteudo novo.';
+    if ((item.accuracy || 0) < 70) return 'Compare com caracteres parecidos e responda devagar.';
+    return 'Inclua em uma revisao leve para estabilizar.';
+  }
+
+  function normalizeGoals(goals = {}) {
+    return {
+      dailyReviewTarget: clampInteger(goals.dailyReviewTarget || DEFAULT_GOALS.dailyReviewTarget, 1, 50),
+      quizAnswerTarget: clampInteger(goals.quizAnswerTarget || DEFAULT_GOALS.quizAnswerTarget, 5, 50),
+      weeklyStreakTarget: clampInteger(goals.weeklyStreakTarget || DEFAULT_GOALS.weeklyStreakTarget, 1, 14),
+      typingSessionTarget: clampInteger(goals.typingSessionTarget || DEFAULT_GOALS.typingSessionTarget, 1, 10)
+    };
   }
 
   function getHint({ current, completion = {}, srsStats = {}, quizStats = {}, typingStats = {} }) {
@@ -323,10 +403,12 @@ export const JapaneseGamificationEngine = (() => {
   return {
     LEVELS,
     SCHEMA_VERSION,
+    DEFAULT_GOALS,
     buildQuizEvent,
     buildSrsEvent,
     buildTypingEvent,
     createEvent,
-    summarize
+    summarize,
+    normalizeGoals
   };
 })();

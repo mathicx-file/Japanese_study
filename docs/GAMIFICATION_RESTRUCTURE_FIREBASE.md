@@ -194,7 +194,58 @@ Custo:
 
 ## Proximos Passos
 
-1. Criar um caderno visual de erros a partir dos eventos e `difficultyMap`.
-2. Adicionar metas configuraveis pelo usuario.
-3. Transformar conquistas em registros persistidos quando houver notificacao/desbloqueio visual.
-4. Criar repositorio Firebase apenas depois da integracao iframe no Mathicx-File.
+Status em 2026-07-07:
+
+1. Caderno visual de erros implementado no Dashboard a partir de `difficultyMap`, `recentErrors` e resumo de gamificacao.
+2. Metas configuraveis implementadas localmente em `settings.gamificationGoals`.
+3. Conquistas desbloqueadas persistidas em `settings.gamificationAchievements`, com estado de desbloqueio preservado em backup/importacao.
+4. Repositorio Firebase ainda nao implementado, por decisao de escopo. Deve ser criado apenas depois da integracao iframe no Mathicx-File.
+
+## Novos Contratos Locais
+
+Metas locais:
+
+```json
+{
+  "gamificationGoals": {
+    "dailyReviewTarget": 10,
+    "quizAnswerTarget": 10,
+    "weeklyStreakTarget": 7,
+    "typingSessionTarget": 1
+  }
+}
+```
+
+Conquistas locais:
+
+```json
+{
+  "gamificationAchievements": {
+    "first-steps": {
+      "id": "first-steps",
+      "title": "Primeiros passos",
+      "unlocked": true,
+      "unlockedAt": "2026-07-07T00:00:00.000Z",
+      "seenAt": "2026-07-07T00:00:00.000Z"
+    }
+  }
+}
+```
+
+Caderno de erros:
+
+- derivado em runtime pelo `GamificationEngine`;
+- nao precisa de store propria neste momento;
+- usa `difficultyMap` e `quizStats.recentErrors`;
+- pode iniciar treino focado usando script/categoria do item.
+
+## Pendencia para Mathicx-File
+
+Quando a aplicacao estiver como iframe dentro do Mathicx-File, os campos locais acima devem migrar para:
+
+```text
+users/{uid}/japaneseStudy/settings/main
+users/{uid}/japaneseStudy/achievements/{achievementId}
+```
+
+Nao implementar isso no app independente. O app atual deve continuar local-first e sem dependencia de Firebase.

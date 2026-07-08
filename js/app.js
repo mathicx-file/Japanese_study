@@ -176,6 +176,14 @@ const JapaneseApp = (() => {
         startQuickSession(sessionId);
       });
 
+      JapaneseUI.onGamificationGoalsChangeCallback((goals) => {
+        JapaneseStorage.setGamificationGoals(goals);
+      });
+
+      JapaneseUI.onErrorPracticeCallback((payload) => {
+        startErrorPractice(payload);
+      });
+
       setupSearch();
       setupHostListener();
       setupStudyTimeTracking();
@@ -562,6 +570,31 @@ const JapaneseApp = (() => {
     startPresetSession(session, 'quick');
   }
 
+  function startErrorPractice(payload = {}) {
+    const script = ['hiragana', 'katakana', 'kanji'].includes(payload.script) ? payload.script : 'all';
+    const categories = payload.category ? [payload.category] : ['gojuuon', 'dakuon', 'handakuon', 'youon', 'N5'];
+    const settings = {
+      mode: script === 'kanji' ? 'multiple-choice' : 'kana-typing',
+      script,
+      categories,
+      limit: '10',
+      includeMistakeReviews: true
+    };
+
+    activeQuizContext = {
+      type: 'recommended',
+      title: 'Treino focado em erros',
+      description: payload.char
+        ? 'Rodada curta para estabilizar ' + payload.char + ' e itens parecidos.'
+        : 'Rodada curta montada a partir do caderno de erros.'
+    };
+    JapaneseUI.applyQuizSettings(settings);
+    persistQuizSettings();
+    JapaneseQuiz.resetStats(10);
+    JapaneseUI.setCurrentView('quiz');
+    renderQuiz();
+  }
+
   function startPresetSession(preset, type) {
     const settings = {
       mode: preset.quiz?.mode || 'multiple-choice',
@@ -608,6 +641,7 @@ const JapaneseApp = (() => {
       const difficulty = await JapaneseStorage.getDifficultyMap(8);
       const completion = getCompletion(stats.studiedIds || []);
       const settings = JapaneseStorage.getSettings();
+      const gamificationGoals = JapaneseStorage.getGamificationGoals();
       const context = {
         characters: allData,
         stats,
@@ -617,9 +651,19 @@ const JapaneseApp = (() => {
         completion,
         difficulty,
         studiedIds: stats.studiedIds || [],
-        diagnostic: settings.diagnostic || {}
+        diagnostic: settings.diagnostic || {},
+        goals: gamificationGoals,
+        persistedAchievements: settings.gamificationAchievements || {}
       };
       const gamificationStats = await JapaneseStorage.getGamificationStats(context);
+      const achievementSync = JapaneseStorage.syncGamificationAchievements(gamificationStats.achievements);
+      if (achievementSync.newlyUnlocked.length > 0) {
+        const unlocked = new Set(achievementSync.newlyUnlocked);
+        gamificationStats.achievements = gamificationStats.achievements.map(item => ({
+          ...item,
+          isNew: unlocked.has(item.id)
+        }));
+      }
       context.gamificationStats = gamificationStats;
       context.gamificationEvents = gamificationStats.events;
       const level = JapaneseLearningLevels.calculate(context);
@@ -675,6 +719,7 @@ const JapaneseApp = (() => {
     const difficulty = await JapaneseStorage.getDifficultyMap(8);
     const completion = getCompletion(stats.studiedIds || []);
     const settings = JapaneseStorage.getSettings();
+    const gamificationGoals = JapaneseStorage.getGamificationGoals();
     const context = {
       characters: allData,
       stats,
@@ -684,7 +729,9 @@ const JapaneseApp = (() => {
       completion,
       difficulty,
       studiedIds: stats.studiedIds || [],
-      diagnostic: settings.diagnostic || {}
+      diagnostic: settings.diagnostic || {},
+      goals: gamificationGoals,
+      persistedAchievements: settings.gamificationAchievements || {}
     };
     const gamificationStats = await JapaneseStorage.getGamificationStats(context);
     return {
